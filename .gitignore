@@ -1,0 +1,10 @@
+/dist/
+/*.so
+/*.dylib
+/*.dll
+/*.h
+/test-results/
+.DS_Store
+*.db
+*.db-shm
+*.db-wal

@@ -1,0 +1,3104 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>上游账户监控 | CPA</title>
+    <script>
+      (() => {
+        let theme = "white";
+        try {
+          const parentTheme =
+            window.parent !== window &&
+            window.parent.document.documentElement.getAttribute("data-theme");
+          const stored = JSON.parse(
+            localStorage.getItem("cli-proxy-theme") || "null",
+          );
+          theme =
+            parentTheme === "dark" || parentTheme === "white"
+              ? parentTheme
+              : stored?.state?.theme || stored?.theme || theme;
+        } catch {}
+        if (theme === "auto")
+          theme = window.matchMedia?.("(prefers-color-scheme: dark)").matches
+            ? "dark"
+            : "white";
+        document.documentElement.dataset.theme =
+          theme === "dark" ? "dark" : "white";
+      })();
+    </script>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f5f6f8;
+        --surface: #fbfcfd;
+        --surface-muted: #eef1f4;
+        --hover: #e7ecf1;
+        --ink: #242830;
+        --muted: #626a76;
+        --subtle: #89919d;
+        --line: #dce2e8;
+        --line-strong: #c9d1da;
+        --accent: #2f6fae;
+        --accent-hover: #285f98;
+        --success: #2f7959;
+        --success-bg: #e8f4ee;
+        --warning: #986b20;
+        --warning-bg: #fff4dc;
+        --danger: #b85056;
+        --danger-bg: #fbeaec;
+        --unknown: #6c63a5;
+        --unknown-bg: #f0eeff;
+        --radius: 7px;
+        font:
+          14px/1.5 -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI Variable",
+          "Segoe UI",
+          "Noto Sans SC",
+          "PingFang SC",
+          "Microsoft YaHei",
+          sans-serif;
+      }
+      [data-theme="dark"] {
+        color-scheme: dark;
+        --bg: #15171b;
+        --surface: #1b1e23;
+        --surface-muted: #22262c;
+        --hover: #2a3038;
+        --ink: #f2f3f5;
+        --muted: #b2b6bd;
+        --subtle: #878d96;
+        --line: #30363f;
+        --line-strong: #3d4550;
+        --accent: #4d86bd;
+        --accent-hover: #5c96cd;
+        --success: #67b88c;
+        --success-bg: #183529;
+        --warning: #d2a45c;
+        --warning-bg: #382c18;
+        --danger: #dc777b;
+        --danger-bg: #3c2024;
+        --unknown: #aaa0e2;
+        --unknown-bg: #2b2644;
+      }
+      * {
+        box-sizing: border-box;
+        letter-spacing: 0;
+      }
+      html,
+      body {
+        min-height: 100%;
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+      }
+      button,
+      input,
+      select {
+        font: inherit;
+      }
+      button {
+        cursor: pointer;
+      }
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.55;
+      }
+      button:focus-visible,
+      input:focus-visible,
+      select:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+      .hidden {
+        display: none !important;
+      }
+      .topbar {
+        height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 0 clamp(16px, 4vw, 48px);
+        border-bottom: 1px solid var(--line);
+        background: var(--surface);
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 700;
+      }
+      .brand-mark {
+        display: grid;
+        width: 26px;
+        height: 26px;
+        place-items: center;
+        border: 1px solid var(--accent);
+        border-radius: 6px;
+        color: var(--accent);
+        font-size: 13px;
+      }
+      .brand-sub,
+      .top-actions {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 500;
+      }
+      .top-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .btn {
+        min-height: 34px;
+        padding: 6px 12px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: var(--surface-muted);
+        color: var(--ink);
+        font-weight: 650;
+        white-space: nowrap;
+        transition:
+          background-color 0.15s,
+          border-color 0.15s,
+          color 0.15s,
+          transform 0.12s;
+      }
+      .btn:hover {
+        background: var(--hover);
+        border-color: var(--line-strong);
+      }
+      .btn:active:not(:disabled) {
+        transform: translateY(1px);
+      }
+      .btn-primary {
+        border-color: var(--accent);
+        background: var(--accent);
+        color: #fff;
+      }
+      .btn-primary:hover {
+        border-color: var(--accent-hover);
+        background: var(--accent-hover);
+      }
+      .btn-icon {
+        display: grid;
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        place-items: center;
+        font-size: 17px;
+      }
+      main {
+        max-width: 1540px;
+        margin: 0 auto;
+        padding: 26px clamp(16px, 4vw, 48px) 48px;
+      }
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+      h1 {
+        font-size: 24px;
+        line-height: 1.2;
+      }
+      h2 {
+        font-size: 17px;
+        line-height: 1.25;
+      }
+      h3 {
+        font-size: 14px;
+        line-height: 1.3;
+      }
+      .page-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 24px;
+        margin-bottom: 20px;
+      }
+      .page-subtitle {
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .page-state {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--muted);
+        font-size: 12px;
+        white-space: nowrap;
+      }
+      .page-state-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--subtle);
+      }
+      .page-state-dot.ok {
+        background: var(--success);
+      }
+      .page-state-dot.warning {
+        background: var(--warning);
+      }
+      .page-state-dot.error {
+        background: var(--danger);
+      }
+      .connection {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 14px;
+        margin-bottom: 16px;
+        padding: 14px 16px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--surface);
+      }
+      .field {
+        display: grid;
+        gap: 5px;
+        min-width: 300px;
+      }
+      .field label {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 650;
+      }
+      input,
+      select {
+        height: 36px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: var(--surface-muted);
+        color: var(--ink);
+        padding: 0 10px;
+      }
+      input::placeholder {
+        color: var(--subtle);
+      }
+      .connection-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .status-text {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .status-text.error {
+        color: var(--danger);
+      }
+      .tabs {
+        display: flex;
+        gap: 24px;
+        margin-bottom: 20px;
+        border-bottom: 1px solid var(--line);
+      }
+      .tab {
+        height: 42px;
+        padding: 0 2px;
+        border: 0;
+        border-bottom: 2px solid transparent;
+        background: transparent;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 650;
+      }
+      .tab.active {
+        border-bottom-color: var(--accent);
+        color: var(--ink);
+      }
+      .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        margin-bottom: 8px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        overflow: hidden;
+        background: var(--surface);
+      }
+      .summary-cell {
+        min-height: 76px;
+        padding: 14px 16px;
+        border-right: 1px solid var(--line);
+      }
+      .summary-cell:last-child {
+        border-right: 0;
+      }
+      .summary-label {
+        display: block;
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .summary-value {
+        display: block;
+        margin-top: 4px;
+        font:
+          700 22px/1.1 ui-monospace,
+          SFMono-Regular,
+          Consolas,
+          monospace;
+      }
+      .summary-value.ok {
+        color: var(--success);
+      }
+      .summary-value.warning {
+        color: var(--warning);
+      }
+      .summary-value.unknown {
+        color: var(--unknown);
+      }
+      .kind-summary {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 18px;
+        margin: 0 0 20px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .kind-summary strong {
+        color: var(--ink);
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+      }
+      .alerts {
+        margin-bottom: 20px;
+        border: 1px solid color-mix(in srgb, var(--warning) 40%, var(--line));
+        border-radius: var(--radius);
+        background: var(--warning-bg);
+        overflow: hidden;
+      }
+      .alerts-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 11px 14px;
+        border-bottom: 1px solid
+          color-mix(in srgb, var(--warning) 40%, var(--line));
+      }
+      .alerts-head h2 {
+        color: var(--warning);
+        font-size: 14px;
+      }
+      .alerts-count {
+        color: var(--warning);
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .alert-row {
+        display: grid;
+        grid-template-columns: 7px minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 10px;
+        padding: 9px 14px;
+      }
+      .alert-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--warning);
+      }
+      .alert-dot.critical {
+        background: var(--danger);
+      }
+      .alert-title {
+        display: block;
+        overflow: hidden;
+        font-size: 12px;
+        font-weight: 700;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .alert-message {
+        display: block;
+        margin-top: 2px;
+        overflow: hidden;
+        color: var(--muted);
+        font-size: 11px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .alert-link {
+        border: 0;
+        background: transparent;
+        color: var(--accent);
+        font-size: 11px;
+        font-weight: 700;
+      }
+      .toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+      .toolbar-left,
+      .toolbar-right {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .toolbar-title {
+        font-size: 17px;
+      }
+      .toolbar-note {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .search {
+        width: 220px;
+      }
+      .sort {
+        width: 130px;
+      }
+      .workspace {
+        display: grid;
+        grid-template-columns: minmax(260px, 300px) minmax(0, 1fr);
+        gap: 18px;
+        align-items: start;
+      }
+      .rail,
+      .detail,
+      .config-panel,
+      .settings-panel {
+        min-width: 0;
+        border: 1px solid var(--line-strong);
+        border-radius: var(--radius);
+        background: var(--surface);
+        overflow: hidden;
+      }
+      .rail {
+        position: sticky;
+        top: 14px;
+        max-height: calc(100dvh - 90px);
+      }
+      .rail-head,
+      .config-head,
+      .settings-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 13px 14px;
+        border-bottom: 1px solid var(--line);
+        background: var(--surface-muted);
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 650;
+      }
+      .rail-list {
+        max-height: calc(100dvh - 180px);
+        overflow: auto;
+      }
+      .rail-item {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        border-bottom: 1px solid var(--line);
+      }
+      .rail-item:last-child {
+        border-bottom: 0;
+      }
+      .rail-item.selected {
+        background: color-mix(in srgb, var(--accent) 9%, var(--surface));
+        box-shadow: inset 2px 0 var(--accent);
+      }
+      .rail-select {
+        min-width: 0;
+        min-height: 78px;
+        padding: 11px 8px 11px 14px;
+        border: 0;
+        background: transparent;
+        color: var(--ink);
+        text-align: left;
+      }
+      .rail-select:hover {
+        background: transparent;
+      }
+      .rail-primary {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      .rail-name {
+        overflow: hidden;
+        font-size: 13px;
+        font-weight: 700;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .rail-metric {
+        max-width: 125px;
+        overflow: hidden;
+        color: var(--success);
+        font:
+          650 11px/1.4 ui-monospace,
+          SFMono-Regular,
+          Consolas,
+          monospace;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .rail-metric.warning {
+        color: var(--warning);
+      }
+      .rail-metric.unknown {
+        color: var(--unknown);
+      }
+      .rail-meta,
+      .rail-kind {
+        display: block;
+        margin-top: 3px;
+        overflow: hidden;
+        color: var(--muted);
+        font-size: 11px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .rail-kind {
+        margin-top: 4px;
+        color: var(--subtle);
+        font-size: 10px;
+      }
+      .rail-refresh {
+        align-self: center;
+        width: 28px;
+        height: 28px;
+        margin-right: 8px;
+        padding: 0;
+        border: 0;
+        border-radius: 5px;
+        background: transparent;
+        color: var(--muted);
+        font-size: 16px;
+      }
+      .rail-refresh:hover {
+        background: var(--hover);
+        color: var(--accent);
+      }
+      .rail-empty {
+        padding: 32px 14px;
+        color: var(--muted);
+        font-size: 12px;
+        text-align: center;
+      }
+      .mobile-account {
+        display: none;
+        margin-bottom: 12px;
+      }
+      .detail-head {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+        gap: 24px;
+        align-items: center;
+        padding: 22px 24px;
+        border-bottom: 1px solid var(--line-strong);
+        background: var(--surface-muted);
+      }
+      .detail-title {
+        overflow-wrap: anywhere;
+        font-size: 21px;
+      }
+      .detail-subtitle {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 12px;
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .detail-status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 12px;
+      }
+      .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        min-height: 24px;
+        padding: 3px 8px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 700;
+      }
+      .status-badge::before {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: currentColor;
+        content: "";
+      }
+      .status-badge.ok {
+        color: var(--success);
+        background: var(--success-bg);
+      }
+      .status-badge.warning {
+        color: var(--warning);
+        background: var(--warning-bg);
+      }
+      .status-badge.critical,
+      .status-badge.error {
+        color: var(--danger);
+        background: var(--danger-bg);
+      }
+      .status-badge.unknown {
+        color: var(--unknown);
+        background: var(--unknown-bg);
+      }
+      .detail-checked {
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .hero-metric {
+        min-width: 0;
+        padding-left: 24px;
+        border-left: 1px solid var(--line-strong);
+        text-align: right;
+      }
+      .hero-label {
+        display: block;
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .hero-value {
+        display: block;
+        margin-top: 4px;
+        overflow-wrap: anywhere;
+        font:
+          700 25px/1.2 ui-monospace,
+          SFMono-Regular,
+          Consolas,
+          monospace;
+      }
+      .hero-percent {
+        display: block;
+        margin-top: 5px;
+        color: var(--muted);
+        font-size: 11px;
+        font-variant-numeric: tabular-nums;
+      }
+      .detail-tabs {
+        display: flex;
+        gap: 24px;
+        padding: 0 24px;
+        border-bottom: 1px solid var(--line);
+      }
+      .detail-tab {
+        height: 42px;
+        padding: 0 2px;
+        border: 0;
+        border-bottom: 2px solid transparent;
+        background: transparent;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 650;
+      }
+      .detail-tab.active {
+        border-bottom-color: var(--accent);
+        color: var(--ink);
+      }
+      .detail-section {
+        padding: 18px 24px 20px;
+        border-bottom: 1px solid var(--line);
+      }
+      .detail-section:last-child {
+        border-bottom: 0;
+      }
+      .section-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+      .section-head h3 {
+        font-size: 13px;
+      }
+      .section-head span {
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .definition-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        overflow: hidden;
+        background: var(--line);
+      }
+      .definition {
+        min-width: 180px;
+        flex: 1 1 180px;
+        padding: 11px 12px;
+        background: var(--surface);
+      }
+      .definition-label {
+        display: block;
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .definition-value {
+        display: block;
+        margin-top: 3px;
+        overflow-wrap: anywhere;
+        font:
+          600 13px/1.4 ui-monospace,
+          SFMono-Regular,
+          Consolas,
+          monospace;
+      }
+      .metric-list {
+        display: grid;
+        gap: 8px;
+      }
+      .metric-row {
+        padding: 11px 12px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: var(--surface-muted);
+      }
+      .metric-top {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .metric-name {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 650;
+      }
+      .metric-value {
+        overflow-wrap: anywhere;
+        text-align: right;
+        font:
+          650 13px/1.4 ui-monospace,
+          SFMono-Regular,
+          Consolas,
+          monospace;
+      }
+      .metric-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px 14px;
+        margin-top: 5px;
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .progress-track {
+        height: 6px;
+        margin-top: 8px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: var(--line);
+      }
+      .progress-fill {
+        height: 100%;
+        transform-origin: left center;
+        background: var(--accent);
+      }
+      .progress-fill.low {
+        background: var(--danger);
+      }
+      .progress-fill.mid {
+        background: var(--warning);
+      }
+      .notice {
+        padding: 11px 12px;
+        border: 1px solid color-mix(in srgb, var(--warning) 35%, var(--line));
+        border-radius: 6px;
+        background: var(--warning-bg);
+        color: var(--warning);
+        font-size: 12px;
+      }
+      .notice + .notice {
+        margin-top: 8px;
+      }
+      .error-box {
+        padding: 11px 12px;
+        border-radius: 6px;
+        background: var(--danger-bg);
+        color: var(--danger);
+        font-size: 12px;
+      }
+      .data-table-wrap {
+        overflow: auto;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+      }
+      .data-table {
+        width: 100%;
+        min-width: 620px;
+        border-collapse: collapse;
+      }
+      .data-table th,
+      .data-table td {
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+        vertical-align: top;
+        font-size: 11px;
+        white-space: nowrap;
+      }
+      .data-table th {
+        color: var(--muted);
+        font-weight: 700;
+        background: var(--surface-muted);
+      }
+      .data-table tr:last-child td {
+        border-bottom: 0;
+      }
+      .data-table td {
+        font-variant-numeric: tabular-nums;
+      }
+      .history-panel {
+        margin-top: 18px;
+        border: 1px solid var(--line-strong);
+        border-radius: var(--radius);
+        background: var(--surface);
+        overflow: hidden;
+      }
+      .history-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 13px 16px;
+        border-bottom: 1px solid var(--line);
+        background: var(--surface-muted);
+      }
+      .history-head h2 {
+        font-size: 14px;
+      }
+      .history-empty {
+        padding: 22px 16px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .config-table-wrap {
+        overflow: auto;
+      }
+      .config-table {
+        width: 100%;
+        min-width: 1180px;
+        border-collapse: collapse;
+      }
+      .config-table th,
+      .config-table td {
+        padding: 11px 12px;
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+        vertical-align: middle;
+      }
+      .config-table th {
+        color: var(--muted);
+        font-size: 11px;
+        white-space: nowrap;
+      }
+      .config-table td {
+        font-size: 12px;
+      }
+      .config-table tr:last-child td {
+        border-bottom: 0;
+      }
+      .config-name {
+        font-weight: 700;
+      }
+      .config-meta,
+      .config-url {
+        display: block;
+        margin-top: 3px;
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .config-table select {
+        min-width: 150px;
+        height: 32px;
+        font-size: 12px;
+      }
+      .config-table input[type="text"] {
+        width: 170px;
+        height: 32px;
+        font-size: 12px;
+      }
+      .pat-editor {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 265px;
+      }
+      .pat-editor input {
+        width: 190px;
+        height: 32px;
+        font-size: 12px;
+      }
+      .mini-button {
+        min-height: 30px;
+        padding: 4px 8px;
+        border: 1px solid var(--line);
+        border-radius: 5px;
+        background: var(--surface);
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 650;
+        white-space: nowrap;
+      }
+      .mini-button:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+      .mini-button.danger {
+        color: var(--danger);
+      }
+      .config-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 13px 18px;
+        border-top: 1px solid var(--line);
+        background: var(--surface-muted);
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .settings-panel {
+        margin-bottom: 14px;
+      }
+      .settings-head {
+        padding: 16px 18px;
+      }
+      .settings-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 1px;
+        background: var(--line);
+      }
+      .setting-cell {
+        padding: 16px 18px;
+        background: var(--surface);
+      }
+      .setting-cell span {
+        display: block;
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .setting-cell strong {
+        display: block;
+        margin-top: 5px;
+        font:
+          650 14px/1.3 ui-monospace,
+          SFMono-Regular,
+          Consolas,
+          monospace;
+      }
+      @media (max-width: 860px) {
+        .topbar {
+          padding: 0 14px;
+        }
+        .top-actions .version,
+        .brand-sub {
+          display: none;
+        }
+        main {
+          padding: 20px 14px 34px;
+        }
+        .page-head,
+        .connection,
+        .toolbar {
+          align-items: stretch;
+          flex-direction: column;
+        }
+        .page-state {
+          justify-content: flex-start;
+        }
+        .field {
+          min-width: 0;
+          width: 100%;
+        }
+        .connection-actions {
+          justify-content: space-between;
+        }
+        .summary-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .summary-cell:nth-child(2) {
+          border-right: 0;
+        }
+        .summary-cell:nth-child(-n + 2) {
+          border-bottom: 1px solid var(--line);
+        }
+        .toolbar-right {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) 130px;
+        }
+        .search {
+          width: auto;
+        }
+        .toolbar-right .toolbar-left {
+          grid-column: 1/-1;
+        }
+        .workspace {
+          display: block;
+        }
+        .rail {
+          display: none;
+        }
+        .mobile-account {
+          display: block;
+        }
+        .detail-head {
+          grid-template-columns: 1fr;
+          gap: 16px;
+          padding: 18px;
+        }
+        .hero-metric {
+          padding: 14px 0 0;
+          border-top: 1px solid var(--line-strong);
+          border-left: 0;
+          text-align: left;
+        }
+        .detail-tabs {
+          padding: 0 18px;
+        }
+        .detail-section {
+          padding: 16px 18px 18px;
+        }
+        .definition {
+          min-width: 100%;
+          flex-basis: 100%;
+        }
+        .tabs {
+          gap: 15px;
+          overflow: auto;
+        }
+        .config-toolbar,
+        .config-footer,
+        .settings-head {
+          align-items: stretch;
+          flex-direction: column;
+        }
+        .settings-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .alert-row {
+          grid-template-columns: 7px minmax(0, 1fr);
+        }
+        .alert-link {
+          grid-column: 2;
+          justify-self: start;
+          padding: 0;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          scroll-behavior: auto !important;
+          transition-duration: 0.01ms !important;
+          animation-duration: 0.01ms !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">监</span><span>上游账户监控</span
+        ><span class="brand-sub">CPA / CPAMP</span>
+      </div>
+      <div class="top-actions">
+        <span id="version" class="version">v0.4.1</span
+        ><button
+          id="header-refresh"
+          class="btn btn-icon"
+          type="button"
+          aria-label="重新加载"
+          title="重新加载"
+        >
+          ↻
+        </button>
+      </div>
+    </header>
+    <main>
+      <header class="page-head">
+        <div>
+          <h1>上游账户监控</h1>
+          <p class="page-subtitle">余额、周期额度、Key 范围与上游详细用量</p>
+        </div>
+        <div class="page-state">
+          <span id="page-state-dot" class="page-state-dot"></span
+          ><span id="page-state-text">尚未连接</span>
+        </div>
+      </header>
+      <section class="connection" aria-label="连接设置">
+        <div class="field">
+          <label for="token">CPA 管理密钥</label
+          ><input
+            id="token"
+            type="password"
+            autocomplete="off"
+            placeholder="输入 CPA 管理密钥"
+          />
+        </div>
+        <div class="connection-actions">
+          <span id="status-line" class="status-text"
+            >打开页面先读取已保存快照</span
+          ><button id="load" class="btn btn-primary" type="button">
+            连接并加载
+          </button>
+        </div>
+      </section>
+      <nav class="tabs" role="tablist" aria-label="上游账户监控页面">
+        <button
+          class="tab active"
+          type="button"
+          role="tab"
+          aria-selected="true"
+          data-tab="monitor"
+        >
+          账户监控</button
+        ><button
+          class="tab"
+          type="button"
+          role="tab"
+          aria-selected="false"
+          data-tab="providers"
+        >
+          供应商配置</button
+        ><button
+          class="tab"
+          type="button"
+          role="tab"
+          aria-selected="false"
+          data-tab="settings"
+        >
+          数据配置
+        </button>
+      </nav>
+      <section id="monitor-view" data-view="monitor">
+        <section class="summary-grid" aria-label="账户摘要">
+          <div class="summary-cell">
+            <span class="summary-label">监控账户</span
+            ><strong id="summary-total" class="summary-value">0</strong>
+          </div>
+          <div class="summary-cell">
+            <span class="summary-label">运行正常</span
+            ><strong id="summary-ok" class="summary-value ok">0</strong>
+          </div>
+          <div class="summary-cell">
+            <span class="summary-label">需要关注</span
+            ><strong id="summary-attention" class="summary-value warning"
+              >0</strong
+            >
+          </div>
+          <div class="summary-cell">
+            <span class="summary-label">未知 / 错误</span
+            ><strong id="summary-unknown" class="summary-value unknown"
+              >0</strong
+            >
+          </div>
+        </section>
+        <div class="kind-summary">
+          <span>余额 <strong id="summary-balances">0</strong></span
+          ><span>周期额度 <strong id="summary-period-quotas">0</strong></span
+          ><span>账户配额 <strong id="summary-quotas">0</strong></span>
+        </div>
+        <section
+          id="alerts-panel"
+          class="alerts hidden"
+          aria-labelledby="alerts-title"
+        >
+          <div class="alerts-head">
+            <h2 id="alerts-title">需要处理</h2>
+            <span id="alerts-count" class="alerts-count">0 项</span>
+          </div>
+          <div id="alerts-list"></div>
+        </section>
+        <div class="toolbar">
+          <div class="toolbar-left">
+            <h2 class="toolbar-title">已纳入监控</h2>
+            <span id="section-count" class="toolbar-note">0 个账户</span>
+          </div>
+          <div class="toolbar-right">
+            <input
+              id="search"
+              class="search"
+              type="search"
+              placeholder="搜索账户或供应商"
+              aria-label="搜索账户或供应商"
+            /><select id="sort" class="sort" aria-label="账户排序">
+              <option value="status">按状态</option>
+              <option value="name">按名称</option>
+              <option value="kind">按计费类型</option>
+              <option value="checked">按最近检查</option>
+            </select>
+            <div class="toolbar-left">
+              <button
+                class="btn"
+                type="button"
+                data-filter="all"
+                aria-pressed="true"
+              >
+                全部</button
+              ><button
+                class="btn"
+                type="button"
+                data-filter="balance"
+                aria-pressed="false"
+              >
+                余额</button
+              ><button
+                class="btn"
+                type="button"
+                data-filter="quota"
+                aria-pressed="false"
+              >
+                额度</button
+              ><button
+                class="btn"
+                type="button"
+                data-filter="attention"
+                aria-pressed="false"
+              >
+                需关注</button
+              ><button id="history-button" class="btn" type="button">
+                最近查询
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="mobile-account">
+          <label for="account-select" class="toolbar-note">选择账户</label
+          ><select id="account-select"></select>
+        </div>
+        <section class="workspace">
+          <aside class="rail" aria-label="账户列表">
+            <div class="rail-head">
+              <span>账户列表</span><span id="rail-count">0</span>
+            </div>
+            <div id="rail-list" class="rail-list"></div>
+          </aside>
+          <section id="detail" class="detail" aria-label="账户详情"></section>
+        </section>
+        <section
+          id="history-panel"
+          class="history-panel hidden"
+          aria-labelledby="history-title"
+        >
+          <div class="history-head">
+            <h2 id="history-title">最近查询</h2>
+            <button id="history-close" class="btn" type="button">关闭</button>
+          </div>
+          <div id="history-body"></div>
+        </section>
+      </section>
+      <section id="providers-view" class="hidden" data-view="providers">
+        <div class="config-panel">
+          <div class="config-toolbar">
+            <div>
+              <h2>供应商配置</h2>
+              <p class="panel-note">
+                供应商来源于 CPA
+                当前配置和认证列表；备注名称只用于本插件显示，不会修改 CPA
+                配置。
+              </p>
+            </div>
+            <button id="save-providers" class="btn btn-primary" type="button">
+              保存监控配置
+            </button>
+          </div>
+          <div class="config-table-wrap">
+            <table class="config-table">
+              <thead>
+                <tr>
+                  <th>监控</th>
+                  <th>备注名称</th>
+                  <th>CPA 名称</th>
+                  <th>Base URL</th>
+                  <th>查询方式</th>
+                  <th>NewAPI 管理 PAT</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="provider-rows"></tbody>
+            </table>
+          </div>
+          <div class="config-footer">
+            <span id="provider-summary">尚未读取 CPA 供应商</span
+            ><span
+              >取消勾选只移出监控，不修改 CPA 配置；CPA
+              新增配置后重新加载即可同步。</span
+            >
+          </div>
+        </div>
+      </section>
+      <section id="settings-view" class="hidden" data-view="settings">
+        <div class="settings-panel">
+          <div class="settings-head">
+            <div>
+              <h2>数据配置</h2>
+              <p class="panel-note">
+                打开页面先读取快照；过期时后台刷新，刷新期间保留旧数据。
+              </p>
+            </div>
+          </div>
+          <div class="settings-grid">
+            <div class="setting-cell">
+              <span>缓存有效期</span><strong id="setting-ttl">-</strong>
+            </div>
+            <div class="setting-cell">
+              <span>请求超时</span><strong id="setting-timeout">-</strong>
+            </div>
+            <div class="setting-cell">
+              <span>告警阈值</span><strong id="setting-thresholds">-</strong>
+            </div>
+            <div class="setting-cell">
+              <span>刷新状态</span><strong id="setting-refreshing">-</strong>
+            </div>
+          </div>
+        </div>
+        <div class="settings-panel">
+          <div class="settings-head">
+            <div>
+              <h2>删除与清理</h2>
+              <p class="panel-note">
+                删除监控记录不会删除 CPA 中的供应商或 API Key。
+              </p>
+            </div>
+          </div>
+          <div class="detail-section">
+            <div class="notice">
+              请在“供应商配置”中取消勾选来停止监控；需要清除某个账户的已保存快照时，可在配置表中使用“清除记录”。
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+    <script>
+      const $ = (selector) => document.querySelector(selector);
+      const tokenInput = $("#token"),
+        statusLine = $("#status-line"),
+        railList = $("#rail-list"),
+        accountSelect = $("#account-select"),
+        detail = $("#detail");
+      let uiState = null,
+        filter = "all",
+        sort = "status",
+        selectedId = "",
+        activeTab = "monitor",
+        pollTimer = null;
+      const patDrafts = new Map(),
+        patClears = new Set();
+      const statusLabels = {
+        ok: "正常",
+        warning: "注意",
+        critical: "严重",
+        error: "错误",
+        unknown: "未知",
+        disabled: "已停用",
+      };
+      const kindLabels = {
+        balance: "余额",
+        period_quota: "周期额度",
+        quota: "账户配额",
+        unsupported: "不可用",
+      };
+      const statusRank = {
+        critical: 0,
+        error: 1,
+        warning: 2,
+        unknown: 3,
+        ok: 4,
+        disabled: 5,
+      };
+      const keyLabels = {
+        mode: "模式",
+        provider: "供应商",
+        adapter: "查询方式",
+        base_url: "接口地址",
+        id: "ID",
+        name: "名称",
+        quantity: "数量",
+        isValid: "Key 有效",
+        is_valid: "Key 有效",
+        is_active: "已启用",
+        status: "状态",
+        status_message: "状态说明",
+        planName: "套餐",
+        plan_name: "套餐",
+        plan: "套餐",
+        planId: "套餐 ID",
+        remaining: "剩余",
+        available: "可用余额",
+        total: "总计",
+        used: "已用",
+        balance: "钱包余额",
+        balance_type: "余额类型",
+        unit: "单位",
+        currency: "币种",
+        expires_at: "到期时间",
+        days_until_expiry: "剩余天数",
+        quota: "总额度",
+        limit: "上限",
+        rate_limits: "速率限制",
+        subscription: "订阅信息",
+        usage: "Token 用量与费用",
+        daily_usage: "每日用量",
+        dailyUsage: "每日用量",
+        model_stats: "模型统计",
+        modelStats: "模型统计",
+        billing: "计费倍率",
+        billing_status: "计费接口",
+        billing_scope: "计费范围",
+        effective_rate_multiplier: "实际倍率",
+        group_rate_multiplier: "分组倍率",
+        resolved_rate_multiplier: "最终倍率",
+        peak_rate_enabled: "峰值倍率",
+        object: "计费对象",
+        schema_version: "协议版本",
+        observed_at: "采集时间",
+        average_duration_ms: "平均耗时",
+        rpm: "每分钟请求数",
+        tpm: "每分钟 Token 数",
+        today: "今日",
+        date: "日期",
+        requests: "请求数",
+        requestCount: "请求数",
+        input_tokens: "输入 Token",
+        output_tokens: "输出 Token",
+        total_tokens: "总 Token",
+        cache_creation_tokens: "缓存创建 Token",
+        cache_read_tokens: "缓存读取 Token",
+        cache_write_tokens: "缓存写入 Token",
+        cost: "费用",
+        actual_cost: "实际费用",
+        model: "模型",
+        window: "窗口",
+        reset_at: "重置时间",
+        reset_time: "重置时间",
+        nextResetTime: "下次重置",
+        quota_per_unit: "每单位额度",
+        total_granted: "总额度",
+        total_used: "已用额度",
+        total_available: "可用额度",
+        unlimited_quota: "不限额",
+        account: "账户",
+        token: "当前 Key",
+        key: "Key",
+        monthlyCredits: "套餐月额度余额",
+        purchasedCredits: "已购 Credits 余额",
+        freeCredits: "赠送 Credits 余额",
+        monthlyCreditsGranted: "套餐月额度",
+        availableCredits: "可用 Credits 总计",
+        windowLimits: "窗口限制",
+        fiveHour: "5 小时",
+        weekly: "一周",
+        month: "一月",
+        monthly: "一月",
+        monthlyWindow: "一月",
+        cap: "额度上限",
+        currentPeriodStart: "本周期开始",
+        currentPeriodEnd: "本周期结束",
+        totalCount: "请求总数",
+        completedCount: "成功请求",
+        failedCount: "失败请求",
+        totalTokensIn: "输入 Token",
+        totalTokensOut: "输出 Token",
+        totalTokens: "总 Token",
+        totalCredits: "Credits 用量",
+        totalCost: "Credits 费用",
+        averageCost: "平均单次 Credits",
+        successRate: "成功率",
+        totalFreeCredits: "赠送 Credits 用量",
+        totalMonthlyCredits: "套餐 Credits 用量",
+        totalPurchasedCredits: "已购 Credits 用量",
+        creditThreshold: "余额提醒阈值",
+        belowThreshold: "低于提醒阈值",
+        exceeded: "已超出限制",
+        periodBasis: "统计基准",
+        orgId: "组织 ID",
+        orgLogin: "组织",
+        userName: "用户",
+        scope: "范围",
+        spent: "已用",
+        resetInterval: "重置周期",
+        resetAt: "重置时间",
+        active: "订阅有效",
+      };
+      const segmentLabels = {
+        average: "平均",
+        duration: "耗时",
+        requests: "请求",
+        input: "输入",
+        output: "输出",
+        cache: "缓存",
+        creation: "创建",
+        read: "读取",
+        write: "写入",
+        tokens: "Token",
+        actual: "实际",
+        effective: "实际",
+        group: "分组",
+        resolved: "最终",
+        rate: "倍率",
+        multiplier: "倍率",
+        peak: "峰值",
+        enabled: "启用",
+        scope: "范围",
+        schema: "协议",
+        version: "版本",
+        observed: "采集",
+        daily: "每日",
+        model: "模型",
+        stats: "统计",
+        reset: "重置",
+        total: "总",
+        granted: "授予",
+        used: "已用",
+        available: "可用",
+        quota: "额度",
+        billing: "计费",
+        status: "状态",
+        message: "说明",
+      };
+      const valueLabels = {
+        quota_limited: "按额度",
+        unrestricted: "不限额",
+        "topped up": "已充值",
+        token: "当前 Key",
+        account: "账户",
+        sub2api: "Sub2API",
+        codex: "Codex",
+        deepseek: "DeepSeek",
+        zai: "智谱",
+        zhipu: "智谱",
+        glm: "智谱",
+        kimi: "Kimi",
+        "kimi-coding": "Kimi Coding",
+        moonshot: "Moonshot",
+        moonshotai: "Moonshot",
+        "new-api": "NewAPI",
+        newapi: "NewAPI",
+        passion: "Sub2API",
+        "openai-compatibility": "OpenAI 兼容",
+        "sub2api.key_billing": "Sub2API Key 计费",
+        "codex-api-key": "Codex API Key",
+        "newapi-usage": "NewAPI",
+        "sub2api-usage": "Sub2API",
+        "deepseek-balance": "DeepSeek 余额",
+        "zai-usage": "智谱用量",
+        "opencode-go": "OpenCode Go",
+        "moonshot-balance": "Moonshot 余额",
+        "relay-usage": "中转用量",
+        commandcode: "Command Code",
+        commandcodegoat: "Command Code GOAT",
+        "command-code": "Command Code",
+        "command-code-goat": "Command Code GOAT",
+        goat: "Command Code GOAT",
+        "commandcode-goat": "Command Code GOAT",
+      };
+      const adapterLabels = {
+        "newapi-usage": "NewAPI",
+        "sub2api-usage": "Sub2API",
+        "deepseek-balance": "DeepSeek 余额",
+        "zai-usage": "智谱用量",
+        "kimi-coding": "Kimi Coding",
+        "opencode-go": "OpenCode Go",
+        "moonshot-balance": "Moonshot 余额",
+        "relay-usage": "中转用量",
+        "commandcode-goat": "Command Code GOAT",
+      };
+      const labelForKey = (key) => {
+        if (keyLabels[key]) return keyLabels[key];
+        if (valueLabels[key]) return valueLabels[key];
+        return String(key || "")
+          .split("_")
+          .map((part) => segmentLabels[part] || part)
+          .join(" ");
+      };
+      const displayValue = (key, value) => {
+        if (typeof value !== "string") return value;
+        const direct = valueLabels[value];
+        if (direct) return direct;
+        const contextual = valueLabels[`${key}:${value}`];
+        return contextual || value;
+      };
+      const appendText = (parent, tag, className, text) => {
+        const node = document.createElement(tag);
+        if (className) node.className = className;
+        node.textContent = text ?? "";
+        parent.append(node);
+        return node;
+      };
+      const formatTime = (value) => {
+        if (!value) return "无记录";
+        const date = new Date(value);
+        return Number.isNaN(date.getTime())
+          ? String(value)
+          : date.toLocaleString("zh-CN", { hour12: false });
+      };
+      const formatNumber = (value) => {
+        const number = Number(value);
+        return Number.isFinite(number)
+          ? new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 2 }).format(
+              number,
+            )
+          : String(value ?? "-");
+      };
+      const formatValue = (key, value) => {
+        if (value === null || value === undefined || value === "") return "-";
+        if (
+          key === "expires_at" ||
+          key === "reset_at" ||
+          key === "reset_time" ||
+          key === "resetAt" ||
+          key === "nextResetTime" ||
+          key === "observed_at" ||
+          key === "currentPeriodStart" ||
+          key === "currentPeriodEnd" ||
+          key === "startedAt" ||
+          key === "expiresAt"
+        )
+          return formatTime(value);
+        if (typeof value === "boolean") return value ? "是" : "否";
+        if (typeof value === "number") return formatNumber(value);
+        if (Array.isArray(value))
+          return value.map((item) => formatValue(key, item)).join("、");
+        if (typeof value === "object")
+          return Object.entries(value)
+            .map(
+              ([nestedKey, nestedValue]) =>
+                `${labelForKey(nestedKey)}：${formatValue(nestedKey, nestedValue)}`,
+            )
+            .join(" · ");
+        return String(displayValue(key, value));
+      };
+      const displayProvider = (value) =>
+        displayValue("provider", value) || "未知";
+      const displayAdapter = (value) =>
+        adapterLabels[value] ||
+        displayValue("adapter", value) ||
+        "未知查询方式";
+      const formatPercent = (value) =>
+        `${(Number(value || 0) * 100).toFixed(1).replace(/\.0$/, "")}%`;
+      const fractionForQuantity = (quantity) => {
+        if (quantity?.unlimited) return null;
+        const remaining = Number(quantity?.remaining),
+          total = Number(quantity?.total);
+        return Number.isFinite(remaining) && Number.isFinite(total) && total > 0
+          ? Math.max(0, Math.min(1, remaining / total))
+          : null;
+      };
+      const fractionForWindow = (window) =>
+        window?.remaining_fraction === undefined
+          ? null
+          : Math.max(0, Math.min(1, Number(window.remaining_fraction)));
+      const amountText = (remaining, total, unit, unlimited = false) => {
+        if (unlimited) return "不限额";
+        const left =
+          remaining === undefined || remaining === ""
+            ? "-"
+            : formatNumber(remaining);
+        const right =
+          total === undefined || total === ""
+            ? ""
+            : ` / ${formatNumber(total)}`;
+        return `${left}${right} ${unit || ""}`.trim();
+      };
+      const accounts = () => uiState?.report?.accounts || [];
+      const isCommandCodeAccount = (account) =>
+        account?.adapter === "commandcode-goat" ||
+        /commandcode|command-code|goat/i.test(
+          `${account?.provider || ""} ${account?.name || ""}`,
+        );
+      const primaryMetric = (account) => {
+        if (isCommandCodeAccount(account)) {
+          const window =
+            (account.windows || []).find((item) => item.name === "fiveHour") ||
+            (account.windows || []).find((item) => item.name === "weekly") ||
+            (account.windows || [])[0];
+          if (window)
+            return {
+              label: `${labelForKey(window.name || "额度窗口")}额度`,
+              value: amountText(
+                window.remaining_amount,
+                window.total_amount,
+                window.unit || "credits",
+              ),
+              percent: fractionForWindow(window),
+              state: account.status,
+            };
+          const quantity =
+            (account.quantities || []).find(
+              (item) => item.name === "availableCredits",
+            ) || (account.quantities || [])[0];
+          if (quantity)
+            return {
+              label: "可用 Credits",
+              value: amountText(
+                quantity.remaining,
+                quantity.total,
+                quantity.unit || "credits",
+              ),
+              percent: fractionForQuantity(quantity),
+              state: account.status,
+            };
+          return {
+            label: "Credits 数据状态",
+            value: account.status === "unknown" ? "不可用" : "暂无数据",
+            state: account.status,
+          };
+        }
+        const balance =
+          (account.balances || []).find((item) =>
+            ["remaining", "available"].includes(item.balance_type),
+          ) ||
+          (account.balances || []).find(
+            (item) => item.balance_type === "total",
+          ) ||
+          account.balances?.[0];
+        if (account.kind === "balance" && balance)
+          return {
+            label: balance.balance_type === "total" ? "账户余额" : "可用余额",
+            value: `${balance.amount} ${balance.currency}`,
+            state: "ok",
+          };
+        const quantity =
+          (account.quantities || []).find((item) => item.scope === "account") ||
+          (account.quantities || [])[0];
+        const window = (account.windows || [])[0];
+        if (account.kind === "period_quota" && window)
+          return {
+            label: `${window.name || "周期"} 周期额度`,
+            value: amountText(
+              window.remaining_amount,
+              window.total_amount,
+              window.unit,
+            ),
+            percent: fractionForWindow(window),
+            state: "ok",
+          };
+        if (quantity)
+          return {
+            label:
+              quantity.scope === "account"
+                ? "账户总额度"
+                : quantity.scope === "token"
+                  ? "当前 Key 额度"
+                  : "剩余额度",
+            value: amountText(
+              quantity.remaining,
+              quantity.total,
+              quantity.unit,
+              quantity.unlimited,
+            ),
+            percent: fractionForQuantity(quantity),
+            state: account.status,
+          };
+        return {
+          label: "数据状态",
+          value: account.status === "unknown" ? "不可用" : "暂无数据",
+          state: account.status,
+        };
+      };
+      const api = async (path, options = {}) => {
+        const key = tokenInput.value.trim();
+        if (!key) throw new Error("请输入 CPA Management Key");
+        const headers = {
+          Accept: "application/json",
+          Authorization: `Bearer ${key}`,
+          ...(options.headers || {}),
+        };
+        const response = await fetch(path, { ...options, headers });
+        let data = {};
+        try {
+          data = await response.json();
+        } catch {}
+        if (response.status === 401)
+          throw new Error("Management Key 无效或已失效");
+        if (!response.ok) throw new Error(data.error || "请求失败");
+        return data;
+      };
+      function setTab(tab) {
+        activeTab = tab;
+        document.querySelectorAll("[data-tab]").forEach((node) => {
+          const active = node.dataset.tab === tab;
+          node.classList.toggle("active", active);
+          node.setAttribute("aria-selected", String(active));
+        });
+        document
+          .querySelectorAll("[data-view]")
+          .forEach((node) =>
+            node.classList.toggle("hidden", node.dataset.view !== tab),
+          );
+        if (tab === "providers") renderProviders();
+        if (tab === "settings") renderSettings();
+      }
+      function filteredAccounts() {
+        const query = $("#search").value.trim().toLowerCase();
+        return accounts()
+          .filter((account) => {
+            const textMatch =
+              !query ||
+              [
+                account.name,
+                account.provider,
+                account.base_url,
+                account.adapter,
+              ].some((value) =>
+                String(value || "")
+                  .toLowerCase()
+                  .includes(query),
+              );
+            const typeMatch =
+              filter === "all" ||
+              (filter === "balance" && account.kind === "balance") ||
+              (filter === "quota" &&
+                ["quota", "period_quota"].includes(account.kind)) ||
+              (filter === "attention" && account.status !== "ok");
+            return textMatch && typeMatch;
+          })
+          .sort((left, right) => {
+            const primary =
+              sort === "name"
+                ? String(left.name || left.id).localeCompare(
+                    String(right.name || right.id),
+                    "zh-CN",
+                  )
+                : sort === "kind"
+                  ? String(left.kind || "").localeCompare(
+                      String(right.kind || ""),
+                    )
+                  : sort === "checked"
+                    ? String(right.checked_at || "").localeCompare(
+                        String(left.checked_at || ""),
+                      )
+                    : (statusRank[left.status] ?? 9) -
+                      (statusRank[right.status] ?? 9);
+            return (
+              primary ||
+              String(left.id || "").localeCompare(String(right.id || ""))
+            );
+          });
+      }
+      function renderAlerts() {
+        const alerts = uiState?.report?.alerts || [];
+        const panel = $("#alerts-panel"),
+          list = $("#alerts-list");
+        list.textContent = "";
+        $("#alerts-count").textContent = `${alerts.length} 项`;
+        panel.classList.toggle("hidden", alerts.length === 0);
+        alerts.forEach((alert) => {
+          const account = accounts().find(
+            (item) => item.id === alert.account_id,
+          );
+          const row = document.createElement("div");
+          row.className = "alert-row";
+          const dot = document.createElement("span");
+          dot.className = `alert-dot${alert.level === "critical" ? " critical" : ""}`;
+          const main = document.createElement("div");
+          appendText(
+            main,
+            "span",
+            "alert-title",
+            account?.name || alert.account_id || "未知账户",
+          );
+          appendText(
+            main,
+            "span",
+            "alert-message",
+            alert.message || alert.type || "需要检查",
+          );
+          const link = document.createElement("button");
+          link.className = "alert-link";
+          link.type = "button";
+          link.textContent = "查看";
+          link.onclick = () => {
+            selectedId = alert.account_id;
+            setTab("monitor");
+            renderMonitor();
+            document
+              .querySelector(
+                '[data-account-id="' + CSS.escape(alert.account_id) + '"]',
+              )
+              ?.scrollIntoView({ behavior: "smooth", block: "center" });
+          };
+          row.append(dot, main, link);
+          list.append(row);
+        });
+      }
+      function definition(parent, label, value) {
+        const cell = document.createElement("div");
+        cell.className = "definition";
+        appendText(cell, "span", "definition-label", label);
+        appendText(cell, "span", "definition-value", value);
+        parent.append(cell);
+      }
+      function section(parent, title, count) {
+        const node = document.createElement("section");
+        node.className = "detail-section";
+        const head = document.createElement("div");
+        head.className = "section-head";
+        appendText(head, "h3", "", title);
+        if (count !== undefined) appendText(head, "span", "", count);
+        node.append(head);
+        parent.append(node);
+        return node;
+      }
+      function tableSection(parent, title, rows, columns) {
+        if (!Array.isArray(rows) || !rows.length) return;
+        const node = section(parent, title, `${rows.length} 条`);
+        const wrap = document.createElement("div");
+        wrap.className = "data-table-wrap";
+        const table = document.createElement("table");
+        table.className = "data-table";
+        const thead = document.createElement("thead");
+        const tr = document.createElement("tr");
+        columns.forEach((column) =>
+          appendText(tr, "th", "", labelForKey(column)),
+        );
+        thead.append(tr);
+        table.append(thead);
+        const tbody = document.createElement("tbody");
+        rows.slice(0, 200).forEach((row) => {
+          const line = document.createElement("tr");
+          columns.forEach((column) =>
+            appendText(line, "td", "", formatValue(column, row?.[column])),
+          );
+          tbody.append(line);
+        });
+        table.append(tbody);
+        wrap.append(table);
+        node.append(wrap);
+      }
+      function appendCommandCodeCreditMetric(list, quantity, showTotal = true) {
+        if (!quantity) return;
+        const row = document.createElement("div");
+        row.className = "metric-row";
+        const top = document.createElement("div");
+        top.className = "metric-top";
+        appendText(
+          top,
+          "span",
+          "metric-name",
+          labelForKey(quantity.name || "Credits"),
+        );
+        appendText(
+          top,
+          "strong",
+          "metric-value",
+          showTotal
+            ? amountText(
+                quantity.remaining,
+                quantity.total,
+                quantity.unit || "credits",
+              )
+            : `${formatNumber(quantity.remaining)} ${quantity.unit || "credits"} 可用`,
+        );
+        row.append(top);
+        const meta = document.createElement("div");
+        meta.className = "metric-meta";
+        const fraction = showTotal ? fractionForQuantity(quantity) : null;
+        if (fraction !== null)
+          appendText(meta, "span", "", `${formatPercent(fraction)} 剩余`);
+        if (Number(quantity.used) > 0)
+          appendText(
+            meta,
+            "span",
+            "",
+            `已用 ${formatNumber(quantity.used)} ${quantity.unit || "credits"}`,
+          );
+        if (!showTotal) appendText(meta, "span", "", "独立于套餐周期额度");
+        if (meta.childNodes.length) row.append(meta);
+        if (fraction !== null) {
+          const track = document.createElement("div");
+          track.className = "progress-track";
+          const fill = document.createElement("div");
+          fill.className = "progress-fill";
+          if (fraction < 0.2) fill.classList.add("low");
+          else if (fraction < 0.5) fill.classList.add("mid");
+          fill.style.transform = `scaleX(${fraction})`;
+          track.append(fill);
+          row.append(track);
+        }
+        list.append(row);
+      }
+      function renderCommandCodeDetails(parent, account) {
+        const details = account.details || {};
+        const plan =
+          details.plan && typeof details.plan === "object" ? details.plan : {};
+        const accountDetails =
+          details.account && typeof details.account === "object"
+            ? details.account
+            : {};
+        const subscription =
+          details.subscription && typeof details.subscription === "object"
+            ? details.subscription
+            : null;
+        const usage =
+          details.usage && typeof details.usage === "object"
+            ? details.usage
+            : null;
+        const creditDetails =
+          details.credits && typeof details.credits === "object"
+            ? details.credits
+            : {};
+        const isOrganization = accountDetails.scope === "organization";
+        const planName = plan.name || plan.id || "Command Code GOAT";
+
+        const windowsNode = section(
+          parent,
+          "窗口额度",
+          account.windows?.length
+            ? `${account.windows.length} 个窗口`
+            : "无窗口限额",
+        );
+        if (account.windows?.length) {
+          const list = document.createElement("div");
+          list.className = "metric-list";
+          account.windows.forEach((window) => {
+            const row = document.createElement("div");
+            row.className = "metric-row";
+            const top = document.createElement("div");
+            top.className = "metric-top";
+            appendText(
+              top,
+              "span",
+              "metric-name",
+              labelForKey(window.name || "额度窗口"),
+            );
+            const fraction = fractionForWindow(window);
+            appendText(
+              top,
+              "strong",
+              "metric-value",
+              amountText(
+                window.remaining_amount,
+                window.total_amount,
+                window.unit || "credits",
+              ),
+            );
+            row.append(top);
+            const meta = document.createElement("div");
+            meta.className = "metric-meta";
+            if (fraction !== null)
+              appendText(meta, "span", "", `${formatPercent(fraction)} 剩余`);
+            if (window.reset_at)
+              appendText(
+                meta,
+                "span",
+                "",
+                `重置 ${formatTime(window.reset_at)}`,
+              );
+            if (meta.childNodes.length) row.append(meta);
+            if (fraction !== null) {
+              const track = document.createElement("div");
+              track.className = "progress-track";
+              const fill = document.createElement("div");
+              fill.className = "progress-fill";
+              if (fraction < 0.2) fill.classList.add("low");
+              else if (fraction < 0.5) fill.classList.add("mid");
+              fill.style.transform = `scaleX(${fraction})`;
+              track.append(fill);
+              row.append(track);
+            }
+            list.append(row);
+          });
+          windowsNode.append(list);
+        } else {
+          const note = document.createElement("div");
+          note.className = "notice";
+          note.textContent =
+            "当前套餐没有返回 5 小时或周窗口限制，额度以套餐月额度和 Credits 池为准。";
+          windowsNode.append(note);
+        }
+
+        const planNode = section(parent, "套餐与账户额度", planName);
+        const planGrid = document.createElement("div");
+        planGrid.className = "definition-grid";
+        definition(planGrid, "套餐", planName);
+        definition(planGrid, "套餐 ID", plan.id || "未返回");
+        definition(
+          planGrid,
+          "订阅状态",
+          plan.active ? "有效" : "未检测到有效订阅",
+        );
+        definition(
+          planGrid,
+          "Credits 状态",
+          creditDetails.belowThreshold ? "低于提醒阈值" : "正常",
+        );
+        if (creditDetails.creditThreshold !== undefined)
+          definition(
+            planGrid,
+            "余额提醒阈值",
+            `${formatNumber(creditDetails.creditThreshold)} credits`,
+          );
+        definition(
+          planGrid,
+          "窗口限制",
+          account.windows?.length
+            ? `${account.windows.length} 个窗口`
+            : "当前套餐无窗口限制",
+        );
+        planNode.append(planGrid);
+        const creditList = document.createElement("div");
+        creditList.className = "metric-list";
+        creditList.style.marginTop = "10px";
+        const quantities = new Map(
+          (account.quantities || []).map((quantity) => [
+            quantity.name,
+            quantity,
+          ]),
+        );
+        const availableCredits = quantities.get("availableCredits");
+        const purchasedCredits = quantities.get("purchasedCredits");
+        const freeCredits = quantities.get("freeCredits");
+        const extraCredits =
+          Number(purchasedCredits?.remaining || 0) +
+          Number(freeCredits?.remaining || 0);
+        if (extraCredits > 0) {
+          appendCommandCodeCreditMetric(creditList, availableCredits);
+          appendCommandCodeCreditMetric(creditList, purchasedCredits, false);
+          appendCommandCodeCreditMetric(creditList, freeCredits, false);
+        } else {
+          const note = document.createElement("div");
+          note.className = "notice";
+          note.textContent = "当前仅有套餐月额度，没有额外的已购或赠送 Credits。";
+          creditList.append(note);
+        }
+        planNode.append(creditList);
+
+        const usageNode = section(
+          parent,
+          "本周期用量",
+          usage ? "请求与用量统计" : "暂无数据",
+        );
+        if (usage) {
+          const preferred = [
+            "totalCount",
+            "completedCount",
+            "failedCount",
+            "totalTokensIn",
+            "totalTokensOut",
+            "totalTokens",
+            "totalCredits",
+            "totalCost",
+            "periodBasis",
+          ].filter((key) => usage[key] !== undefined);
+          const extra = Object.keys(usage).filter(
+            (key) => !preferred.includes(key),
+          );
+          const grid = document.createElement("div");
+          grid.className = "definition-grid";
+          [...preferred, ...extra].forEach((key) =>
+            definition(grid, labelForKey(key), formatValue(key, usage[key])),
+          );
+          usageNode.append(grid);
+        } else {
+          const note = document.createElement("div");
+          note.className = "notice";
+          note.textContent = "本周期用量统计暂时不可用。";
+          usageNode.append(note);
+        }
+
+        const limits = Array.isArray(details.org_limits)
+          ? details.org_limits
+          : [];
+        if (limits.length) {
+          const keys = [
+            "scope",
+            "spent",
+            "limit",
+            "resetInterval",
+            "resetAt",
+            ...new Set(limits.flatMap((item) => Object.keys(item || {}))),
+          ].filter((key, index, list) => list.indexOf(key) === index);
+          tableSection(parent, "组织限制", limits, keys);
+        } else {
+          const limitsNode = section(
+            parent,
+            "组织限制",
+            isOrganization ? "暂无数据" : "不适用",
+          );
+          const note = document.createElement("div");
+          note.className = "notice";
+          note.textContent = isOrganization
+            ? "组织限制信息暂不可用。"
+            : "当前为个人账户，不包含组织限制。";
+          limitsNode.append(note);
+        }
+
+        const accountNode = section(
+          parent,
+          "账户与订阅",
+          isOrganization ? "组织账户" : "个人账户",
+        );
+        const accountGrid = document.createElement("div");
+        accountGrid.className = "definition-grid";
+        definition(accountGrid, "账户范围", isOrganization ? "组织账户" : "个人账户");
+        if (isOrganization) {
+          definition(
+            accountGrid,
+            "组织",
+            accountDetails.orgLogin || accountDetails.orgId || "未返回",
+          );
+          definition(accountGrid, "组织 ID", accountDetails.orgId || "未返回");
+        }
+        definition(accountGrid, "用户", accountDetails.userName || "未返回");
+        definition(accountGrid, "当前套餐", planName);
+        if (subscription) {
+          Object.entries(subscription)
+            .filter(([key]) => !["planId", "status"].includes(key))
+            .forEach(([key, value]) =>
+              definition(
+                accountGrid,
+                labelForKey(key),
+                formatValue(key, value),
+              ),
+            );
+        }
+        accountNode.append(accountGrid);
+        if (!subscription) {
+          const note = document.createElement("div");
+          note.className = "notice";
+          note.textContent =
+            "未检测到有效订阅信息；Credits 余额仍按接口返回展示。";
+          note.style.marginTop = "10px";
+          accountNode.append(note);
+        }
+
+        if (account.warnings?.length) {
+          const warningNode = section(
+            parent,
+            "说明",
+            `${account.warnings.length} 项`,
+          );
+          account.warnings.forEach((warning) => {
+            const note = document.createElement("div");
+            note.className = "notice";
+            note.textContent = warning;
+            warningNode.append(note);
+          });
+        }
+        if (account.error?.message) {
+          const errorNode = section(parent, "错误");
+          const note = document.createElement("div");
+          note.className = "error-box";
+          note.textContent = account.error.message;
+          errorNode.append(note);
+        }
+      }
+      function renderDetails(parent, account) {
+        if (isCommandCodeAccount(account)) {
+          renderCommandCodeDetails(parent, account);
+          return;
+        }
+        const details = account.details || {};
+        const current = section(parent, "当前情况");
+        const grid = document.createElement("div");
+        grid.className = "definition-grid";
+        definition(grid, "计费类型", kindLabels[account.kind] || "未分类");
+        definition(grid, "供应商", displayProvider(account.provider));
+        if (details.mode !== undefined)
+          definition(grid, "模式", formatValue("mode", details.mode));
+        if (details.planName !== undefined || details.plan_name !== undefined)
+          definition(
+            grid,
+            "套餐",
+            formatValue("planName", details.planName ?? details.plan_name),
+          );
+        if (details.unit !== undefined)
+          definition(grid, "单位", formatValue("unit", details.unit));
+        if (details.isValid !== undefined)
+          definition(grid, "Key 有效", formatValue("isValid", details.isValid));
+        if (details.expires_at !== undefined)
+          definition(
+            grid,
+            "到期时间",
+            formatValue("expires_at", details.expires_at),
+          );
+        current.append(grid);
+        if (account.kind === "balance" && account.balances?.length) {
+          const node = section(parent, "余额", "货币余额");
+          const balanceGrid = document.createElement("div");
+          balanceGrid.className = "definition-grid";
+          account.balances.forEach((item) =>
+            definition(
+              balanceGrid,
+              labelForKey(item.balance_type || "balance"),
+              `${item.amount} ${item.currency}`,
+            ),
+          );
+          node.append(balanceGrid);
+        }
+        if (account.quantities?.length) {
+          const node = section(
+            parent,
+            "配额明细",
+            `${account.quantities.length} 项`,
+          );
+          const list = document.createElement("div");
+          list.className = "metric-list";
+          account.quantities
+            .filter((item) => item.name !== "expires")
+            .forEach((quantity) => {
+              const row = document.createElement("div");
+              row.className = "metric-row";
+              const top = document.createElement("div");
+              top.className = "metric-top";
+              appendText(
+                top,
+                "span",
+                "metric-name",
+                `${labelForKey(quantity.name || "配额")}${quantity.scope === "token" ? " · 当前 Key" : quantity.scope === "account" ? " · 账户总额" : ""}`,
+              );
+              appendText(
+                top,
+                "strong",
+                "metric-value",
+                amountText(
+                  quantity.remaining,
+                  quantity.total,
+                  quantity.unit,
+                  quantity.unlimited,
+                ),
+              );
+              row.append(top);
+              const meta = document.createElement("div");
+              meta.className = "metric-meta";
+              const fraction = fractionForQuantity(quantity);
+              if (fraction !== null)
+                appendText(meta, "span", "", `${formatPercent(fraction)} 剩余`);
+              if (quantity.used)
+                appendText(
+                  meta,
+                  "span",
+                  "",
+                  `已用 ${formatNumber(quantity.used)} ${quantity.unit || ""}`,
+                );
+              if (quantity.reset_at)
+                appendText(
+                  meta,
+                  "span",
+                  "",
+                  `重置 ${formatTime(quantity.reset_at)}`,
+                );
+              if (meta.childNodes.length) row.append(meta);
+              if (fraction !== null) {
+                const track = document.createElement("div");
+                track.className = "progress-track";
+                const fill = document.createElement("div");
+                fill.className = "progress-fill";
+                if (fraction < 0.2) fill.classList.add("low");
+                else if (fraction < 0.5) fill.classList.add("mid");
+                fill.style.transform = `scaleX(${fraction})`;
+                track.append(fill);
+                row.append(track);
+              }
+              list.append(row);
+            });
+          node.append(list);
+        }
+        if (account.windows?.length) {
+          const node = section(
+            parent,
+            "周期额度",
+            `${account.windows.length} 个窗口`,
+          );
+          const list = document.createElement("div");
+          list.className = "metric-list";
+          account.windows.forEach((window) => {
+            const row = document.createElement("div");
+            row.className = "metric-row";
+            const top = document.createElement("div");
+            top.className = "metric-top";
+            appendText(
+              top,
+              "span",
+              "metric-name",
+              labelForKey(window.name || "额度窗口"),
+            );
+            const fraction = fractionForWindow(window);
+            appendText(
+              top,
+              "strong",
+              "metric-value",
+              window.remaining_amount
+                ? `${amountText(window.remaining_amount, window.total_amount, window.unit)}${fraction !== null ? ` · ${formatPercent(fraction)} 剩余` : ""}`
+                : fraction !== null
+                  ? `${formatPercent(fraction)} 剩余`
+                  : "暂无数据",
+            );
+            row.append(top);
+            if (fraction !== null) {
+              const track = document.createElement("div");
+              track.className = "progress-track";
+              const fill = document.createElement("div");
+              fill.className = "progress-fill";
+              if (fraction < 0.2) fill.classList.add("low");
+              else if (fraction < 0.5) fill.classList.add("mid");
+              fill.style.transform = `scaleX(${fraction})`;
+              track.append(fill);
+              row.append(track);
+            }
+            if (window.reset_at)
+              appendText(
+                row,
+                "div",
+                "metric-meta",
+                `重置 ${formatTime(window.reset_at)}`,
+              );
+            list.append(row);
+          });
+          node.append(list);
+        }
+        if (details.quota && typeof details.quota === "object") {
+          const node = section(parent, "总额度");
+          const grid = document.createElement("div");
+          grid.className = "definition-grid";
+          ["limit", "used", "remaining", "unit"].forEach((key) => {
+            if (details.quota[key] !== undefined)
+              definition(
+                grid,
+                labelForKey(key),
+                formatValue(key, details.quota[key]),
+              );
+          });
+          node.append(grid);
+        }
+        if (Array.isArray(details.rate_limits))
+          tableSection(parent, "速率限制", details.rate_limits, [
+            "window",
+            "limit",
+            "used",
+            "remaining",
+            "unit",
+            "reset_at",
+          ]);
+        if (details.subscription && typeof details.subscription === "object") {
+          const node = section(parent, "订阅额度");
+          const grid = document.createElement("div");
+          grid.className = "definition-grid";
+          Object.entries(details.subscription).forEach(([key, value]) =>
+            definition(grid, labelForKey(key), formatValue(key, value)),
+          );
+          node.append(grid);
+        }
+        if (details.usage && typeof details.usage === "object") {
+          const node = section(parent, "Token 用量与费用");
+          const grid = document.createElement("div");
+          grid.className = "definition-grid";
+          Object.entries(details.usage).forEach(([key, value]) =>
+            definition(grid, labelForKey(key), formatValue(key, value)),
+          );
+          node.append(grid);
+        }
+        tableSection(parent, "每日用量", details.daily_usage, [
+          "date",
+          "requests",
+          "input_tokens",
+          "output_tokens",
+          "cache_creation_tokens",
+          "cache_read_tokens",
+          "cache_write_tokens",
+          "total_tokens",
+          "cost",
+          "actual_cost",
+        ]);
+        tableSection(parent, "模型统计", details.model_stats, [
+          "model",
+          "requests",
+          "input_tokens",
+          "output_tokens",
+          "total_tokens",
+          "cost",
+          "actual_cost",
+        ]);
+        if (details.billing && typeof details.billing === "object") {
+          const node = section(parent, "计费倍率");
+          const grid = document.createElement("div");
+          grid.className = "definition-grid";
+          Object.entries(details.billing).forEach(([key, value]) =>
+            definition(grid, labelForKey(key), formatValue(key, value)),
+          );
+          node.append(grid);
+        }
+        if (account.warnings?.length) {
+          account.warnings.forEach((warning) => {
+            const node = section(parent, "说明");
+            const note = document.createElement("div");
+            note.className = "notice";
+            note.textContent = warning;
+            node.append(note);
+          });
+        }
+        if (account.error?.message) {
+          const node = section(parent, "错误");
+          const note = document.createElement("div");
+          note.className = "error-box";
+          note.textContent = account.error.message;
+          node.append(note);
+        }
+      }
+      function renderDetail(account) {
+        detail.textContent = "";
+        if (!account) {
+          const empty = document.createElement("div");
+          empty.className = "empty-detail";
+          appendText(
+            empty,
+            "strong",
+            "",
+            uiState ? "没有匹配的账户" : "还没有账户数据",
+          );
+          appendText(
+            empty,
+            "p",
+            "",
+            uiState
+              ? "调整筛选条件或在供应商配置中勾选账户。"
+              : "输入 Management Key 后点击“连接并加载”。",
+          );
+          detail.append(empty);
+          return;
+        }
+        const metric = primaryMetric(account);
+        const head = document.createElement("div");
+        head.className = "detail-head";
+        const identity = document.createElement("div");
+        appendText(identity, "h2", "detail-title", account.name || account.id);
+        const sub = document.createElement("div");
+        sub.className = "detail-subtitle";
+        appendText(sub, "span", "", displayProvider(account.provider));
+        appendText(sub, "span", "", kindLabels[account.kind] || "未分类");
+        appendText(sub, "span", "", displayAdapter(account.adapter));
+        identity.append(sub);
+        const status = document.createElement("div");
+        status.className = "detail-status";
+        const badge = document.createElement("span");
+        badge.className = `status-badge ${account.status || "unknown"}`;
+        badge.textContent = statusLabels[account.status] || "未知";
+        status.append(badge);
+        appendText(
+          status,
+          "span",
+          "detail-checked",
+          account.stale
+            ? `数据已过期 · ${formatTime(account.checked_at)}`
+            : `最近检查 ${formatTime(account.checked_at)}`,
+        );
+        identity.append(status);
+        const hero = document.createElement("div");
+        hero.className = "hero-metric";
+        appendText(hero, "span", "hero-label", metric.label);
+        appendText(hero, "strong", "hero-value", metric.value);
+        if (metric.percent !== undefined)
+          appendText(
+            hero,
+            "span",
+            "hero-percent",
+            `${formatPercent(metric.percent)} 剩余`,
+          );
+        head.append(identity, hero);
+        detail.append(head);
+        const tabs = document.createElement("div");
+        tabs.className = "detail-tabs";
+        const currentTab = document.createElement("button");
+        currentTab.className = "detail-tab active";
+        currentTab.type = "button";
+        currentTab.textContent = "当前情况";
+        const sourceTab = document.createElement("button");
+        sourceTab.className = "detail-tab";
+        sourceTab.type = "button";
+        sourceTab.textContent = "来源与诊断";
+        tabs.append(currentTab, sourceTab);
+        detail.append(tabs);
+        const current = document.createElement("div");
+        renderDetails(current, account);
+        detail.append(current);
+        const source = document.createElement("div");
+        source.className = "hidden";
+        const sourceNode = section(source, "查询来源");
+        const grid = document.createElement("div");
+        grid.className = "definition-grid";
+        definition(grid, "供应商", displayProvider(account.provider));
+        definition(grid, "查询方式", displayAdapter(account.adapter));
+        definition(grid, "接口地址", account.base_url || "未提供");
+        definition(grid, "最近成功", formatTime(account.last_success_at));
+        definition(
+          grid,
+          "请求耗时",
+          account.latency_ms ? `${account.latency_ms} ms` : "无记录",
+        );
+        definition(grid, "数据状态", account.stale ? "过期快照" : "实时快照");
+        sourceNode.append(grid);
+        detail.append(source);
+        currentTab.onclick = () => {
+          currentTab.classList.add("active");
+          sourceTab.classList.remove("active");
+          current.classList.remove("hidden");
+          source.classList.add("hidden");
+        };
+        sourceTab.onclick = () => {
+          sourceTab.classList.add("active");
+          currentTab.classList.remove("active");
+          source.classList.remove("hidden");
+          current.classList.add("hidden");
+        };
+      }
+      function renderMonitor() {
+        const list = filteredAccounts();
+        $("#section-count").textContent = `${list.length} 个账户`;
+        $("#rail-count").textContent = list.length;
+        if (!list.some((item) => item.id === selectedId))
+          selectedId = list[0]?.id || "";
+        railList.textContent = "";
+        accountSelect.textContent = "";
+        if (!list.length) {
+          const empty = document.createElement("div");
+          empty.className = "rail-empty";
+          empty.textContent = uiState
+            ? "没有匹配的账户"
+            : "输入 Key 后加载账户";
+          railList.append(empty);
+          renderDetail(null);
+          return;
+        }
+        list.forEach((account) => {
+          const item = document.createElement("div");
+          item.className = `rail-item${account.id === selectedId ? " selected" : ""}`;
+          item.dataset.accountId = account.id;
+          const button = document.createElement("button");
+          button.className = "rail-select";
+          button.type = "button";
+          const top = document.createElement("div");
+          top.className = "rail-primary";
+          appendText(top, "span", "rail-name", account.name || account.id);
+          const metric = primaryMetric(account);
+          appendText(
+            top,
+            "span",
+            `rail-metric ${account.status === "unknown" ? "unknown" : account.status !== "ok" ? "warning" : ""}`,
+            metric.value,
+          );
+          button.append(top);
+          appendText(
+            button,
+            "span",
+            "rail-meta",
+            `${displayProvider(account.provider)} · ${statusLabels[account.status] || "未知"}`,
+          );
+          appendText(
+            button,
+            "span",
+            "rail-kind",
+            kindLabels[account.kind] || "未分类",
+          );
+          button.onclick = () => {
+            selectedId = account.id;
+            renderMonitor();
+          };
+          const refresh = document.createElement("button");
+          refresh.className = "rail-refresh";
+          refresh.type = "button";
+          refresh.title = `刷新 ${account.name || account.id}`;
+          refresh.setAttribute("aria-label", refresh.title);
+          refresh.textContent = "↻";
+          refresh.onclick = (event) => {
+            event.stopPropagation();
+            refreshNow();
+          };
+          item.append(button, refresh);
+          railList.append(item);
+          const option = document.createElement("option");
+          option.value = account.id;
+          option.textContent = account.name || account.id;
+          accountSelect.append(option);
+        });
+        accountSelect.value = selectedId;
+        renderDetail(list.find((item) => item.id === selectedId));
+      }
+      function renderProviders() {
+        const providers = uiState?.providers || [];
+        const body = $("#provider-rows");
+        body.textContent = "";
+        $("#provider-summary").textContent = providers.length
+          ? `已同步 CPA ${providers.length} 项，已勾选 ${providers.filter((item) => item.monitored).length} 项`
+          : "尚未读取 CPA 配置";
+        providers.forEach((provider) => {
+          const row = document.createElement("tr");
+          const check = document.createElement("input");
+          check.type = "checkbox";
+          check.checked = Boolean(provider.monitored);
+          check.dataset.providerId = provider.id;
+          check.setAttribute(
+            "aria-label",
+            `监控 ${provider.name || provider.id}`,
+          );
+          const checkCell = document.createElement("td");
+          checkCell.append(check);
+          row.append(checkCell);
+          const customCell = document.createElement("td");
+          const customInput = document.createElement("input");
+          customInput.type = "text";
+          customInput.maxLength = 80;
+          customInput.placeholder =
+            provider.default_name || provider.name || provider.id;
+          customInput.value = provider.custom_name || "";
+          customInput.dataset.nameId = provider.id;
+          customInput.setAttribute(
+            "aria-label",
+            `备注名称 ${provider.default_name || provider.name || provider.id}`,
+          );
+          customCell.append(customInput);
+          row.append(customCell);
+          const nameCell = document.createElement("td");
+          appendText(
+            nameCell,
+            "div",
+            "config-name",
+            provider.default_name || provider.name || provider.id,
+          );
+          appendText(
+            nameCell,
+            "span",
+            "config-meta",
+            `${displayProvider(provider.provider)} · ${provider.key_hint || "Key 已隐藏"}`,
+          );
+          row.append(nameCell);
+          const urlCell = document.createElement("td");
+          appendText(
+            urlCell,
+            "span",
+            "config-url",
+            provider.base_url || "未提供",
+          );
+          appendText(
+            urlCell,
+            "span",
+            "config-meta",
+            provider.proxy_configured ? "已配置专属代理" : "未配置专属代理",
+          );
+          row.append(urlCell);
+          const adapterCell = document.createElement("td");
+          const select = document.createElement("select");
+          select.dataset.adapterId = provider.id;
+          [
+            ["auto", "自动识别"],
+            ["newapi-usage", "NewAPI"],
+            ["sub2api-usage", "Sub2API"],
+            ["deepseek-balance", "DeepSeek 余额"],
+            ["zai-usage", "智谱用量"],
+            ["kimi-coding", "Kimi Coding"],
+            ["opencode-go", "OpenCode Go"],
+            ["moonshot-balance", "Moonshot 余额"],
+            ["commandcode-goat", "Command Code GOAT"],
+            ["relay-usage", "中转自动识别"],
+          ].forEach(([value, label]) => {
+            const option = document.createElement("option");
+            option.value = value;
+            option.textContent = label;
+            select.append(option);
+          });
+          select.value = provider.adapter_override || "auto";
+          adapterCell.append(select);
+          row.append(adapterCell);
+          const patCell = document.createElement("td");
+          const needsPat =
+            ["relay-usage", "newapi-usage"].includes(provider.adapter) ||
+            /newapi|coderelay/i.test(
+              `${provider.provider} ${provider.base_url}`,
+            );
+          if (needsPat) {
+            const editor = document.createElement("div");
+            editor.className = "pat-editor";
+            const input = document.createElement("input");
+            input.type = "password";
+            input.autocomplete = "off";
+            input.placeholder = provider.management_pat_configured
+              ? "已保存，留空保持"
+              : "手动输入 NewAPI 管理 PAT";
+            input.dataset.patId = provider.id;
+            input.value = patDrafts.get(provider.id) || "";
+            editor.append(input);
+            const clear = document.createElement("button");
+            clear.className = "mini-button danger";
+            clear.type = "button";
+            clear.textContent = "清除 PAT";
+            clear.onclick = () => {
+              patDrafts.delete(provider.id);
+              patClears.add(provider.id);
+              input.value = "";
+              input.placeholder = "保存后清除";
+            };
+            editor.append(clear);
+            patCell.append(editor);
+          } else {
+            appendText(patCell, "span", "config-meta", "仅 NewAPI 需要");
+          }
+          row.append(patCell);
+          const actionCell = document.createElement("td");
+          const clearSnapshot = document.createElement("button");
+          clearSnapshot.className = "mini-button danger";
+          clearSnapshot.type = "button";
+          clearSnapshot.textContent = "清除记录";
+          clearSnapshot.onclick = () => clearProviderSnapshot(provider.id);
+          actionCell.append(clearSnapshot);
+          row.append(actionCell);
+          body.append(row);
+        });
+      }
+      function renderSettings() {
+        const config = uiState?.config || {};
+        $("#setting-ttl").textContent = config.cache_ttl_seconds
+          ? `${config.cache_ttl_seconds} 秒`
+          : "-";
+        $("#setting-timeout").textContent = config.request_timeout_seconds
+          ? `${config.request_timeout_seconds} 秒`
+          : "-";
+        $("#setting-thresholds").textContent =
+          config.warning_percent !== undefined
+            ? `注意 ${config.warning_percent}% / 严重 ${config.critical_percent}%`
+            : "-";
+        $("#setting-refreshing").textContent = uiState?.refreshing
+          ? "后台刷新中"
+          : "空闲";
+      }
+      function updateSummary() {
+        const summary = uiState?.report?.summary || {};
+        $("#summary-total").textContent = summary.total || 0;
+        $("#summary-ok").textContent = summary.ok || 0;
+        $("#summary-attention").textContent =
+          (summary.warning || 0) + (summary.critical || 0);
+        $("#summary-unknown").textContent =
+          (summary.error || 0) + (summary.unknown || 0);
+        $("#summary-balances").textContent = summary.balances || 0;
+        $("#summary-period-quotas").textContent = summary.period_quotas || 0;
+        $("#summary-quotas").textContent = summary.quotas || 0;
+        const stateText =
+          {
+            ok: "整体正常",
+            warning: "需要关注",
+            critical: "存在严重问题",
+            error: "存在错误",
+            unknown: "部分数据不可用",
+          }[uiState?.report?.status] || "尚未同步";
+        $("#page-state-text").textContent =
+          `${stateText} · ${formatTime(uiState?.report?.generated_at)}`;
+        $("#page-state-dot").className =
+          `page-state-dot ${uiState?.report?.status === "ok" ? "ok" : uiState?.report?.status === "unknown" ? "warning" : "error"}`;
+        renderAlerts();
+        renderMonitor();
+        renderProviders();
+        renderSettings();
+      }
+      async function loadState() {
+        try {
+          const data = await api("/v0/management/upstream-monitor/state");
+          uiState = data;
+          statusLine.className = "status-text";
+          statusLine.textContent = data.refreshing
+            ? "已加载快照，后台正在刷新"
+            : "已加载快照";
+          $("#version").textContent = `v${data.version || "0.2.0"}`;
+          updateSummary();
+          if (data.refreshing) {
+            clearTimeout(pollTimer);
+            pollTimer = setTimeout(loadState, 2500);
+          }
+        } catch (error) {
+          statusLine.className = "status-text error";
+          statusLine.textContent = error.message || "加载失败";
+          $("#page-state-text").textContent = "连接失败";
+          $("#page-state-dot").className = "page-state-dot error";
+        }
+      }
+      async function refreshNow() {
+        try {
+          statusLine.className = "status-text";
+          statusLine.textContent = "正在刷新选中账户…";
+          await api("/v0/management/upstream-monitor/refresh", {
+            method: "POST",
+            body: "{}",
+            headers: { "Content-Type": "application/json" },
+          });
+          await loadState();
+        } catch (error) {
+          statusLine.className = "status-text error";
+          statusLine.textContent = error.message || "刷新失败";
+        }
+      }
+      async function saveProviders() {
+        const providers = uiState?.providers || [];
+        const payload = providers.map((provider) => {
+          const checked = document.querySelector(
+            `[data-provider-id="${CSS.escape(provider.id)}"]`,
+          );
+          const select = document.querySelector(
+            `[data-adapter-id="${CSS.escape(provider.id)}"]`,
+          );
+          const input = document.querySelector(
+            `[data-pat-id="${CSS.escape(provider.id)}"]`,
+          );
+          const nameInput = document.querySelector(
+            `[data-name-id="${CSS.escape(provider.id)}"]`,
+          );
+          const item = {
+            id: provider.id,
+            monitored: Boolean(checked?.checked),
+            adapter: select?.value || "auto",
+            custom_name: nameInput?.value.trim() || "",
+          };
+          if (input?.value.trim()) item.management_pat = input.value.trim();
+          if (patClears.has(provider.id)) item.clear_management_pat = true;
+          return item;
+        });
+        try {
+          await api("/v0/management/upstream-monitor/providers", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ providers: payload }),
+          });
+          patDrafts.clear();
+          patClears.clear();
+          statusLine.className = "status-text";
+          statusLine.textContent = "供应商配置已保存，已同步 CPA 当前配置";
+          await loadState();
+        } catch (error) {
+          statusLine.className = "status-text error";
+          statusLine.textContent = error.message || "保存失败";
+        }
+      }
+      async function clearProviderSnapshot(id) {
+        try {
+          await api("/v0/management/upstream-monitor/cleanup", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ids: [id] }),
+          });
+          statusLine.className = "status-text";
+          statusLine.textContent = "监控记录已清除";
+          $("#history-panel").classList.add("hidden");
+          await loadState();
+        } catch (error) {
+          statusLine.className = "status-text error";
+          statusLine.textContent = error.message || "清除失败";
+        }
+      }
+      function renderHistory(items) {
+        const panel = $("#history-panel"),
+          body = $("#history-body");
+        body.textContent = "";
+        panel.classList.remove("hidden");
+        if (!items.length) {
+          appendText(body, "div", "history-empty", "暂无查询历史");
+          return;
+        }
+        const wrap = document.createElement("div");
+        wrap.className = "data-table-wrap";
+        const table = document.createElement("table");
+        table.className = "data-table";
+        const head = document.createElement("thead");
+        const tr = document.createElement("tr");
+        ["时间", "类型", "状态", "主要数据"].forEach((label) =>
+          appendText(tr, "th", "", label),
+        );
+        head.append(tr);
+        table.append(head);
+        const tbody = document.createElement("tbody");
+        items.forEach((item) => {
+          const line = document.createElement("tr");
+          appendText(line, "td", "", formatTime(item.checked_at));
+          appendText(line, "td", "", kindLabels[item.kind] || "未分类");
+          appendText(line, "td", "", statusLabels[item.status] || "未知");
+          const metric = primaryMetric(item);
+          appendText(line, "td", "", `${metric.label}：${metric.value}`);
+          tbody.append(line);
+        });
+        table.append(tbody);
+        wrap.append(table);
+        body.append(wrap);
+      }
+      async function loadHistory() {
+        const current = accounts().find((item) => item.id === selectedId);
+        if (!current) {
+          return;
+        }
+        try {
+          statusLine.className = "status-text";
+          statusLine.textContent = "正在加载查询历史…";
+          const data = await api(
+            `/v0/management/upstream-monitor/history?account_id=${encodeURIComponent(current.id)}&limit=50`,
+          );
+          renderHistory(data.history || []);
+          statusLine.textContent = "查询历史已加载";
+        } catch (error) {
+          statusLine.className = "status-text error";
+          statusLine.textContent = error.message || "历史加载失败";
+        }
+      }
+      document
+        .querySelectorAll("[data-tab]")
+        .forEach((node) =>
+          node.addEventListener("click", () => setTab(node.dataset.tab)),
+        );
+      document.querySelectorAll("[data-filter]").forEach((node) =>
+        node.addEventListener("click", () => {
+          filter = node.dataset.filter;
+          document
+            .querySelectorAll("[data-filter]")
+            .forEach((item) =>
+              item.setAttribute("aria-pressed", String(item === node)),
+            );
+          renderMonitor();
+        }),
+      );
+      $("#search").addEventListener("input", renderMonitor);
+      $("#sort").addEventListener("change", (event) => {
+        sort = event.target.value;
+        renderMonitor();
+      });
+      accountSelect.addEventListener("change", (event) => {
+        selectedId = event.target.value;
+        renderMonitor();
+      });
+      $("#load").addEventListener("click", () => {
+        sessionStorage.setItem(
+          "upstream-monitor-management-key",
+          tokenInput.value.trim(),
+        );
+        loadState();
+      });
+      $("#header-refresh").addEventListener("click", loadState);
+      $("#save-providers").addEventListener("click", saveProviders);
+      $("#history-button").addEventListener("click", loadHistory);
+      $("#history-close").addEventListener("click", () =>
+        $("#history-panel").classList.add("hidden"),
+      );
+      const remembered = sessionStorage.getItem(
+        "upstream-monitor-management-key",
+      );
+      if (remembered) {
+        tokenInput.value = remembered;
+        loadState();
+      } else {
+        renderMonitor();
+      }
+      tokenInput.addEventListener("change", () =>
+        sessionStorage.setItem(
+          "upstream-monitor-management-key",
+          tokenInput.value.trim(),
+        ),
+      );
+    </script>
+  </body>
+</html>
