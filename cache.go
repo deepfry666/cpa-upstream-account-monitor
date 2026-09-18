@@ -19,12 +19,15 @@ type persistedSnapshotCache struct {
 }
 
 type snapshotStore struct {
-	mu        sync.RWMutex
-	saveMu    sync.Mutex
-	entries   map[string]accountSnapshot
-	history   map[string][]accountSnapshot
-	loadErr   error
-	writeFile func(string, []byte, os.FileMode) error
+	mu                sync.RWMutex
+	saveMu            sync.Mutex
+	entries           map[string]accountSnapshot
+	history           map[string][]accountSnapshot
+	loadErr           error
+	migrationRevision uint64
+	migrationDirty    bool
+	migrationErr      error
+	writeFile         func(string, []byte, os.FileMode) error
 }
 
 func newSnapshotStore() *snapshotStore {
@@ -135,6 +138,112 @@ func (s *snapshotStore) rename(id, name string) {
 		s.history[id][index].AccountName = name
 	}
 	s.mu.Unlock()
+}
+
+// migrateAccount moves a uniquely matched legacy identity to its stable ID.
+// The newer active snapshot wins; history is merged without duplicating an
+// already migrated event.
+func (s *snapshotStore) migrateAccount(oldID, newID string) bool {
+	oldID = strings.TrimSpace(oldID)
+	newID = strings.TrimSpace(newID)
+	if s == nil || oldID == "" || newID == "" || oldID == newID {
+		return false
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if _, ok := s.entries[oldID]; !ok {
+		if _, ok := s.history[oldID]; !ok {
+			return false
+		}
+	}
+	oldEntry, oldOK := s.entries[oldID]
+	if oldOK {
+		oldEntry.AccountID = newID
+		current, currentOK := s.entries[newID]
+		if !currentOK || snapshotNewer(oldEntry, current) {
+			s.entries[newID] = oldEntry
+		}
+		delete(s.entries, oldID)
+	}
+
+	combined := append([]accountSnapshot(nil), s.history[newID]...)
+	combined = append(combined, s.history[oldID]...)
+	delete(s.history, oldID)
+	if len(combined) == 0 {
+		s.migrationRevision++
+		s.migrationDirty = true
+		return true
+	}
+	for index := range combined {
+		combined[index].AccountID = newID
+	}
+	sort.SliceStable(combined, func(i, j int) bool {
+		left := snapshotSortTime(combined[i])
+		right := snapshotSortTime(combined[j])
+		if !left.Equal(right) {
+			return left.After(right)
+		}
+		return combined[i].Status > combined[j].Status
+	})
+	seen := make(map[string]struct{}, len(combined))
+	history := combined[:0]
+	for _, snapshot := range combined {
+		raw, err := json.Marshal(snapshot)
+		if err != nil {
+			continue
+		}
+		key := string(raw)
+		if _, duplicate := seen[key]; duplicate {
+			continue
+		}
+		seen[key] = struct{}{}
+		history = append(history, snapshot)
+	}
+	if len(history) > 100 {
+		history = history[:100]
+	}
+	s.history[newID] = history
+	s.migrationRevision++
+	s.migrationDirty = true
+	return true
+}
+
+func snapshotNewer(left, right accountSnapshot) bool {
+	leftTime := snapshotSortTime(left)
+	rightTime := snapshotSortTime(right)
+	if !leftTime.Equal(rightTime) {
+		return leftTime.After(rightTime)
+	}
+	return false
+}
+
+func snapshotSortTime(snapshot accountSnapshot) time.Time {
+	if !snapshot.CheckedAt.IsZero() {
+		return snapshot.CheckedAt
+	}
+	return snapshot.LastAttemptAt
+}
+
+func (s *snapshotStore) hasPendingMigration() bool {
+	if s == nil {
+		return false
+	}
+	s.mu.RLock()
+	pending := s.migrationDirty
+	s.mu.RUnlock()
+	return pending
+}
+
+func (s *snapshotStore) migrationError() error {
+	if s == nil {
+		return nil
+	}
+	s.mu.RLock()
+	err := s.migrationErr
+	s.mu.RUnlock()
+	return err
 }
 
 func (s *snapshotStore) load(path string) error {
@@ -306,6 +415,7 @@ func (s *snapshotStore) save(path string) error {
 		return fmt.Errorf("refusing to overwrite unreadable snapshot cache: %w", err)
 	}
 	s.mu.RLock()
+	migrationRevision := s.migrationRevision
 	entries := make(map[string]accountSnapshot, len(s.entries))
 	history := make(map[string][]accountSnapshot, len(s.history))
 	for id, snapshot := range s.entries {
@@ -328,8 +438,20 @@ func (s *snapshotStore) save(path string) error {
 		writeFile = writeFileAtomic
 	}
 	if err := writeFile(path, raw, 0o600); err != nil {
-		return fmt.Errorf("persist snapshot cache: %w", err)
+		wrapped := fmt.Errorf("persist snapshot cache: %w", err)
+		s.mu.Lock()
+		if s.migrationDirty {
+			s.migrationErr = wrapped
+		}
+		s.mu.Unlock()
+		return wrapped
 	}
+	s.mu.Lock()
+	if s.migrationRevision == migrationRevision {
+		s.migrationDirty = false
+		s.migrationErr = nil
+	}
+	s.mu.Unlock()
 	return nil
 }
 

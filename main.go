@@ -79,7 +79,7 @@ import (
 const pluginName = "upstream-monitor"
 const repositoryURL = "https://github.com/deepfry666/cpa-upstream-account-monitor"
 
-var pluginVersion = "0.5.2"
+var pluginVersion = "0.5.3"
 
 type envelope struct {
 	OK     bool            `json:"ok"`
@@ -539,6 +539,9 @@ func handleQuotaFetch(raw []byte) ([]byte, error) {
 	ids, err := state.prefs.resolveIdentities([]credentialCandidate{candidate})
 	if err != nil {
 		return errorEnvelope("identity_resolution_failed", err.Error()), nil
+	}
+	if state.prefs.canMigrateLegacySnapshot(candidate, ids[0]) {
+		state.migrateLegacySnapshot(candidate.LegacyID, ids[0])
 	}
 	candidate.AccountID = ids[0]
 	if _, _, ok := adapterFor(candidate); !ok {
@@ -1572,6 +1575,9 @@ func assignStableAccountIDs(accounts []staticAccount) ([]staticAccount, error) {
 		return nil, err
 	}
 	for index := range accounts {
+		if state.prefs.canMigrateLegacySnapshot(candidates[index], ids[index]) {
+			state.migrateLegacySnapshot(candidates[index].LegacyID, ids[index])
+		}
 		accounts[index].candidate.AccountID = ids[index]
 		accounts[index].candidate.Fingerprint = candidates[index].Fingerprint
 	}
@@ -1704,6 +1710,9 @@ func buildMonitorUIState(callbackID string) (monitorUIState, error) {
 	if err := state.store.loadError(); err != nil {
 		warnings = append(warnings, "快照缓存恢复失败，已保留原文件并停止自动覆盖："+err.Error())
 	}
+	if err := state.store.migrationError(); err != nil {
+		warnings = append(warnings, "快照迁移已应用，但持久化失败，将在后续同步中继续重试："+err.Error())
+	}
 	return monitorUIState{
 		Version:       pluginVersion,
 		GeneratedAt:   time.Now().UTC(),
@@ -1825,6 +1834,20 @@ func (s *snapshotStore) missing(id string) bool {
 	}
 	_, ok := s.get(id)
 	return !ok
+}
+
+func (s *pluginState) migrateLegacySnapshot(oldID, newID string) {
+	if s == nil || s.store == nil {
+		return
+	}
+	s.store.migrateAccount(oldID, newID)
+	if !s.store.hasPendingMigration() {
+		return
+	}
+	s.mu.RLock()
+	cachePath := s.cfg.CachePath
+	s.mu.RUnlock()
+	_ = s.store.save(cachePath)
 }
 
 func (s *pluginState) storeMissing(id string) bool {

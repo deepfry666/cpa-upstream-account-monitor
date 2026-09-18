@@ -2,8 +2,12 @@ const { test, expect } = require("@playwright/test");
 
 test.use({ channel: "msedge" });
 
+const uiBaseURL = (process.env.UI_BASE_URL || "http://127.0.0.1:8765").replace(/\/+$/, "");
+const uiURL = `${uiBaseURL}/ui.html`;
+const iframeHarnessURL = `${uiBaseURL}/__upstream-monitor-iframe-harness`;
+
 const uiState = {
-  version: "0.5.2",
+  version: "0.5.3",
   generated_at: "2026-09-18T08:00:00Z",
   refreshing: false,
   providers: [
@@ -192,7 +196,7 @@ test("state warnings are shown in the status line", async ({ page }) => {
     },
   );
 
-  await page.goto("http://127.0.0.1:8765/ui.html");
+  await page.goto(uiURL);
 
   const statusLine = page.locator("#status-line");
   await expect(statusLine).toContainText("快照缓存恢复失败");
@@ -235,7 +239,7 @@ test("Z.ai cash balance limitation renders with console action", async ({ page }
   });
 
   await page.setViewportSize({ width: 390, height: 900 });
-  await page.goto("http://127.0.0.1:8765/ui.html");
+  await page.goto(uiURL);
   await expect(
     page.getByText("该账号暂不支持自动查询现金余额。"),
   ).toBeVisible();
@@ -273,7 +277,7 @@ test("single account refresh sends an explicit asynchronous request", async ({
     },
   );
 
-  await page.goto("http://127.0.0.1:8765/ui.html");
+  await page.goto(uiURL);
   await page
     .getByRole("button", { name: "刷新 Command Code GOAT" })
     .click();
@@ -327,7 +331,7 @@ test("refresh polls the job and reports its final result", async ({ page }) => {
     },
   );
 
-  await page.goto("http://127.0.0.1:8765/ui.html");
+  await page.goto(uiURL);
   await page
     .getByRole("button", { name: "刷新 Command Code GOAT" })
     .click();
@@ -379,7 +383,7 @@ test("refresh all sends the explicit all scope", async ({ page }) => {
     },
   );
 
-  await page.goto("http://127.0.0.1:8765/ui.html");
+  await page.goto(uiURL);
   await page.getByRole("button", { name: "刷新全部" }).click();
 
   await expect.poll(() => refreshRequests.length).toBe(1);
@@ -417,7 +421,7 @@ test("reload only reads state and never starts a refresh", async ({ page }) => {
     },
   );
 
-  await page.goto("http://127.0.0.1:8765/ui.html");
+  await page.goto(uiURL);
   await expect.poll(() => stateCount).toBe(1);
   await page.getByRole("button", { name: "重新加载" }).click();
 
@@ -458,7 +462,7 @@ test("provider save sends revision and explicit PAT actions", async ({ page }) =
     },
   );
 
-  await page.goto("http://127.0.0.1:8765/ui.html");
+  await page.goto(uiURL);
   await page.getByRole("tab", { name: "供应商配置" }).click();
   await page.locator('[data-pat-id="cc-1"]').fill("replacement-pat");
   await page.getByRole("button", { name: "保存监控配置" }).click();
@@ -505,7 +509,7 @@ test("provider save result remains visible after state refresh", async ({ page }
     },
   );
 
-  await page.goto("http://127.0.0.1:8765/ui.html");
+  await page.goto(uiURL);
   await page.getByRole("tab", { name: "供应商配置" }).click();
   await page.locator('[data-name-id="cc-1"]').fill("已提交备注");
   await page.getByRole("button", { name: "保存监控配置" }).click();
@@ -550,7 +554,7 @@ test("provider revision conflict keeps the draft and explains recovery", async (
     },
   );
 
-  await page.goto("http://127.0.0.1:8765/ui.html");
+  await page.goto(uiURL);
   await page.getByRole("tab", { name: "供应商配置" }).click();
   const draft = page.locator('[data-name-id="cc-1"]');
   await draft.fill("冲突草稿");
@@ -581,7 +585,7 @@ test("provider drafts survive tab changes", async ({ page }) => {
     },
   );
 
-  await page.goto("http://127.0.0.1:8765/ui.html");
+  await page.goto(uiURL);
   await page.getByRole("tab", { name: "供应商配置" }).click();
   await page.locator('[data-name-id="cc-1"]').fill("尚未保存的备注");
   await page.locator('[data-pat-id="cc-1"]').fill("尚未保存的PAT");
@@ -622,7 +626,7 @@ test("state refresh preserves provider and monitor settings drafts", async ({
     },
   );
 
-  await page.goto("http://127.0.0.1:8765/ui.html");
+  await page.goto(uiURL);
   await page.getByRole("tab", { name: "供应商配置" }).click();
   await page.locator('[data-name-id="cc-1"]').fill("轮询中的备注");
   await page.locator('[data-pat-id="cc-1"]').fill("轮询中的PAT");
@@ -683,7 +687,7 @@ test("state refresh preserves provider and monitor settings drafts", async ({
 test("changing provider adapter reveals its authentication field immediately", async ({
   page,
 }) => {
-  await page.goto("http://127.0.0.1:8765/ui.html");
+  await page.goto(uiURL);
   await page.getByRole("tab", { name: "供应商配置" }).click();
   await expect(page.locator('[data-pat-id="cc-1"]')).toHaveCount(0);
 
@@ -708,7 +712,7 @@ test("unload is guarded only while provider drafts are dirty", async ({
     },
   );
 
-  await page.goto("http://127.0.0.1:8765/ui.html");
+  await page.goto(uiURL);
   await page.getByRole("tab", { name: "供应商配置" }).click();
   const isGuarded = () =>
     page.evaluate(() => {
@@ -817,7 +821,7 @@ test("late history responses never replace the selected account history", async 
     },
   );
 
-  await page.goto("http://127.0.0.1:8765/ui.html");
+  await page.goto(uiURL);
   await page.getByRole("tab", { name: "历史" }).click();
   await expect(page.locator(".history-inline-title")).toContainText(
     "账户 A · account-a",
@@ -852,7 +856,7 @@ test("opening history identifies and focuses the selected account", async ({
     },
   );
 
-  await page.goto("http://127.0.0.1:8765/ui.html");
+  await page.goto(uiURL);
   await page.getByRole("button", { name: "最近查询" }).click();
 
   await expect(page.locator("#history-title")).toContainText(
@@ -877,7 +881,7 @@ test("history load failures stay in the selected account view", async ({
     },
   );
 
-  await page.goto("http://127.0.0.1:8765/ui.html");
+  await page.goto(uiURL);
   await page.getByRole("tab", { name: "历史" }).click();
 
   await expect(page.locator(".history-inline-title")).toContainText(
@@ -947,7 +951,7 @@ test("clicking an alert locates its metric and offers filter recovery", async ({
     },
   );
 
-  await page.goto("http://127.0.0.1:8765/ui.html");
+  await page.goto(uiURL);
   await page.getByRole("searchbox", { name: "搜索账户或供应商" }).fill("不存在");
   await page.getByRole("button", { name: "额度", exact: true }).click();
   expect(
@@ -1005,7 +1009,7 @@ test("clicking an alert for an archived account explains the fallback", async ({
     },
   );
 
-  await page.goto("http://127.0.0.1:8765/ui.html");
+  await page.goto(uiURL);
   await page.getByRole("button", { name: "查看" }).click();
 
   await expect(page.locator("#status-line")).toContainText(
@@ -1044,7 +1048,7 @@ test("accounts keep first-seen order until the user chooses another sort", async
     },
   );
 
-  await page.goto("http://127.0.0.1:8765/ui.html");
+  await page.goto(uiURL);
 
   await expect(page.locator("#sort")).toHaveValue("stable");
   await expect(page.locator(".rail-name")).toHaveText([
@@ -1056,7 +1060,7 @@ test("accounts keep first-seen order until the user chooses another sort", async
 test("navigation separates monitor settings from read-only data status", async ({
   page,
 }) => {
-  await page.goto("http://127.0.0.1:8765/ui.html");
+  await page.goto(uiURL);
 
   await expect(page.locator('nav[role="tablist"] [role="tab"]')).toHaveText([
     "账户监控",
@@ -1096,7 +1100,7 @@ test("monitor settings save currency cash thresholds", async ({ page }) => {
     },
   );
 
-  await page.goto("http://127.0.0.1:8765/ui.html");
+  await page.goto(uiURL);
   await page.getByRole("tab", { name: "监控设置" }).click();
   await page.getByLabel("CNY 注意金额").fill("10");
   await page.getByLabel("CNY 严重金额").fill("1");
@@ -1142,7 +1146,7 @@ test("provider save includes an account cash threshold override", async ({
     },
   );
 
-  await page.goto("http://127.0.0.1:8765/ui.html");
+  await page.goto(uiURL);
   await page.getByRole("tab", { name: "供应商配置" }).click();
   await page.getByLabel(/账户现金注意金额/).fill("20");
   await page.getByLabel(/账户现金严重金额/).fill("2");
@@ -1192,7 +1196,7 @@ test("provider save failure preserves every edited draft field", async ({
     },
   );
 
-  await page.goto("http://127.0.0.1:8765/ui.html");
+  await page.goto(uiURL);
   await page.getByRole("tab", { name: "供应商配置" }).click();
   const monitored = page.locator('[data-provider-id="cc-1"]');
   const draftName = page.locator('[data-name-id="cc-1"]');
@@ -1260,7 +1264,7 @@ test("clearing an existing account cash override sends an explicit clear flag", 
     },
   );
 
-  await page.goto("http://127.0.0.1:8765/ui.html");
+  await page.goto(uiURL);
   await page.getByRole("tab", { name: "供应商配置" }).click();
   await page
     .getByRole("button", {
@@ -1370,7 +1374,7 @@ test("account details keep current quota visible while grouped views expose bill
     },
   );
 
-  await page.goto("http://127.0.0.1:8765/ui.html");
+  await page.goto(uiURL);
 
   await expect(page.locator("#detail [role='tab']")).toHaveText([
     "计费与限制",
@@ -1421,7 +1425,7 @@ test("clearing an account snapshot requires explicit confirmation", async ({
     },
   );
 
-  await page.goto("http://127.0.0.1:8765/ui.html");
+  await page.goto(uiURL);
   await page.getByRole("tab", { name: "供应商配置" }).click();
   await page.getByRole("button", { name: "清除 Command Code GOAT 记录" }).click();
 
@@ -1449,7 +1453,7 @@ for (const width of [390, 768]) {
     page,
   }) => {
     await page.setViewportSize({ width, height: 900 });
-    await page.goto("http://127.0.0.1:8765/ui.html");
+    await page.goto(uiURL);
     await page.getByRole("tab", { name: "供应商配置" }).click();
 
     await expect(
@@ -1483,7 +1487,7 @@ for (const viewport of [
 ]) {
   test(`Command Code layout renders on ${viewport.name}`, async ({ page }) => {
     await page.setViewportSize(viewport);
-    await page.goto("http://127.0.0.1:8765/ui.html");
+    await page.goto(uiURL);
     await expect(page.locator(".hero-label")).toHaveText("5 小时额度");
     await expect(page.locator(".hero-value")).toHaveText("11.47 / 14 credits");
     await expect(page.locator(".hero-percent")).toHaveText("81.9% 剩余");
@@ -1534,7 +1538,7 @@ for (const viewport of [
 test("keyboard navigation exposes a visible focus ring in management controls", async ({
   page,
 }) => {
-  await page.goto("http://127.0.0.1:8765/ui.html");
+  await page.goto(uiURL);
 
   const seen = new Set();
   for (let index = 0; index < 8; index += 1) {
@@ -1577,7 +1581,7 @@ for (const theme of ["white", "dark"]) {
       });
     });
 
-    await page.goto("http://127.0.0.1:8765/__upstream-monitor-iframe-harness");
+    await page.goto(iframeHarnessURL);
     const monitor = page.frameLocator("#monitor");
     await expect(monitor.locator(".brand")).toContainText("上游账户监控");
     await expect(monitor.locator(".hero-value")).toHaveText(

@@ -4,7 +4,7 @@
 
 A native CLIProxyAPI / CPA Manager Plus plugin for discovering upstream accounts from CPA configuration and host credentials, then monitoring balances, quota windows, usage, and health. It includes a Chinese-first responsive management UI and read-only endpoints for Hermes.
 
-Current version: `0.5.2`. The technical plugin ID and shared-library name remain `upstream-monitor`.
+Current version: `0.5.3`. The technical plugin ID and shared-library name remain `upstream-monitor`.
 
 ## Behavior
 
@@ -111,8 +111,8 @@ Go 1.26+, CGO, and the target C compiler are required. Release packages must be 
 ```bash
 make test
 make vet
-make package VERSION=0.5.2 GOOS=linux GOARCH=amd64
-make package VERSION=0.5.2 GOOS=linux GOARCH=arm64
+make package VERSION=0.5.3 GOOS=linux GOARCH=amd64
+make package VERSION=0.5.3 GOOS=linux GOARCH=arm64
 ```
 
 `make package` performs a real `dlopen(RTLD_NOW)` and required-symbol check for the target architecture before creating a release ZIP. Linux AMD64 uses the native C toolchain. Linux ARM64 uses `aarch64-linux-gnu-gcc` with `qemu-aarch64-static`; when QEMU is absent, the build downloads and extracts it from the configured apt source into a temporary directory. `SKIP_PLUGIN_LOAD_CHECK=1` is only for local diagnostic builds and must not be used for releases.

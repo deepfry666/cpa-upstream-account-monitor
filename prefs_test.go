@@ -589,6 +589,36 @@ func TestMonitorPrefsAmbiguousLegacyIDRequiresRelink(t *testing.T) {
 	}
 }
 
+func TestMonitorPrefsAmbiguousLegacyIDDoesNotAuthorizeSnapshotMigration(t *testing.T) {
+	prefs := newMonitorPrefs()
+	const legacyID = "config:openai-compatibility:0:0"
+	candidates := []credentialCandidate{
+		{
+			LegacyID:    legacyID,
+			AuthIndex:   legacyID,
+			Source:      "static",
+			BaseURL:     "https://relay.example/v1",
+			Fingerprint: "fingerprint-a",
+		},
+		{
+			LegacyID:    legacyID,
+			AuthIndex:   legacyID,
+			Source:      "static",
+			BaseURL:     "https://relay.example/v1",
+			Fingerprint: "fingerprint-b",
+		},
+	}
+	ids, err := prefs.resolveIdentities(candidates)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for index, id := range ids {
+		if prefs.canMigrateLegacySnapshot(candidates[index], id) {
+			t.Fatalf("ambiguous legacy id authorized snapshot migration for %q", id)
+		}
+	}
+}
+
 func TestMonitorPrefsMissingLegacyIdentityBasisRequiresRelink(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "prefs.json")

@@ -196,6 +196,114 @@ func TestSnapshotStoreVersionedSaveReloadRoundTripsExactly(t *testing.T) {
 	}
 }
 
+func TestSnapshotStoreMigratesLegacyAccountAndHistory(t *testing.T) {
+	store := newSnapshotStore()
+	store.put(accountSnapshot{
+		AccountID:   "legacy-position",
+		AccountName: "Legacy",
+		Status:      statusWarning,
+		CheckedAt:   time.Unix(1, 0).UTC(),
+	})
+	store.put(accountSnapshot{
+		AccountID:   "legacy-position",
+		AccountName: "Legacy",
+		Status:      statusOK,
+		CheckedAt:   time.Unix(2, 0).UTC(),
+	})
+	store.put(accountSnapshot{
+		AccountID:   "acct_stable",
+		AccountName: "Legacy",
+		Status:      statusCritical,
+		CheckedAt:   time.Unix(3, 0).UTC(),
+	})
+
+	store.migrateAccount("legacy-position", "acct_stable")
+	store.migrateAccount("legacy-position", "acct_stable")
+
+	if _, ok := store.get("legacy-position"); ok {
+		t.Fatal("legacy account remained active after migration")
+	}
+	entry, ok := store.get("acct_stable")
+	if !ok || entry.CheckedAt.Unix() != 3 {
+		t.Fatalf("migrated active entry = %#v, ok=%v", entry, ok)
+	}
+	history := store.historyFor("acct_stable", 10)
+	if len(history) != 3 {
+		t.Fatalf("migrated history length = %d, want 3", len(history))
+	}
+	for index, snapshot := range history {
+		if snapshot.AccountID != "acct_stable" {
+			t.Fatalf("history[%d] account id = %q, want acct_stable", index, snapshot.AccountID)
+		}
+	}
+	if history[0].CheckedAt.Unix() != 3 || history[1].CheckedAt.Unix() != 2 || history[2].CheckedAt.Unix() != 1 {
+		t.Fatalf("migrated history order = %#v", history)
+	}
+}
+
+func TestSnapshotStoreMigrationKeepsNewerLegacyActiveSnapshot(t *testing.T) {
+	store := newSnapshotStore()
+	store.put(accountSnapshot{
+		AccountID:   "legacy-position",
+		AccountName: "Legacy",
+		Status:      statusOK,
+		CheckedAt:   time.Unix(4, 0).UTC(),
+	})
+	store.put(accountSnapshot{
+		AccountID:   "acct_stable",
+		AccountName: "Legacy",
+		Status:      statusCritical,
+		CheckedAt:   time.Unix(3, 0).UTC(),
+	})
+
+	store.migrateAccount("legacy-position", "acct_stable")
+
+	if _, ok := store.get("legacy-position"); ok {
+		t.Fatal("legacy account remained active after migration")
+	}
+	entry, ok := store.get("acct_stable")
+	if !ok || entry.AccountID != "acct_stable" || entry.CheckedAt.Unix() != 4 || entry.Status != statusOK {
+		t.Fatalf("migrated active entry = %#v, ok=%v", entry, ok)
+	}
+}
+
+func TestSnapshotStoreMigrationCapsCombinedHistoryAtOneHundred(t *testing.T) {
+	store := newSnapshotStore()
+	legacyHistory := make([]accountSnapshot, 80)
+	stableHistory := make([]accountSnapshot, 80)
+	for index := range legacyHistory {
+		legacyHistory[index] = accountSnapshot{
+			AccountID: "legacy-position",
+			Status:    statusWarning,
+			CheckedAt: time.Unix(int64(100+index), 0).UTC(),
+		}
+	}
+	for index := range stableHistory {
+		stableHistory[index] = accountSnapshot{
+			AccountID: "acct_stable",
+			Status:    statusOK,
+			CheckedAt: time.Unix(int64(index), 0).UTC(),
+		}
+	}
+	store.mu.Lock()
+	store.entries["legacy-position"] = legacyHistory[len(legacyHistory)-1]
+	store.entries["acct_stable"] = stableHistory[len(stableHistory)-1]
+	store.history["legacy-position"] = legacyHistory
+	store.history["acct_stable"] = stableHistory
+	store.mu.Unlock()
+
+	if migrated := store.migrateAccount("legacy-position", "acct_stable"); !migrated {
+		t.Fatal("legacy account was not migrated")
+	}
+	history := store.historyFor("acct_stable", 200)
+	if len(history) != 100 {
+		t.Fatalf("migrated history length = %d, want 100", len(history))
+	}
+	if history[0].CheckedAt.Unix() != 179 || history[99].CheckedAt.Unix() != 60 {
+		t.Fatalf("migrated history bounds = %s..%s, want 179..60", history[0].CheckedAt, history[99].CheckedAt)
+	}
+}
+
 func TestSnapshotStoreSerializesConcurrentSaves(t *testing.T) {
 	store := newSnapshotStore()
 	store.put(accountSnapshot{AccountID: "acct_a", AccountName: "first", CheckedAt: time.Unix(1, 0).UTC()})

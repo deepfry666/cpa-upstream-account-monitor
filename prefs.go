@@ -778,6 +778,30 @@ func hasStableIdentityBasis(candidate credentialCandidate) bool {
 	}
 }
 
+func (p *monitorPrefs) canMigrateLegacySnapshot(candidate credentialCandidate, accountID string) bool {
+	if p == nil || !hasStableIdentityBasis(candidate) {
+		return false
+	}
+	legacyID := strings.TrimSpace(candidate.LegacyID)
+	accountID = strings.TrimSpace(accountID)
+	if legacyID == "" || accountID == "" || legacyID == accountID {
+		return false
+	}
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	identity, ok := p.data.Identities[accountID]
+	if !ok || identity.LegacyID != legacyID || p.data.RelinkRequired[accountID] {
+		return false
+	}
+	for id, candidateIdentity := range p.data.Identities {
+		if id == accountID || strings.TrimSpace(candidateIdentity.LegacyID) != legacyID {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
 func identityMatchesCandidate(identity persistedIdentity, candidate credentialCandidate) bool {
 	if identity.Source != candidate.Source {
 		return false

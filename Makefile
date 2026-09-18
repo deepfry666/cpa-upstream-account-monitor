@@ -1,5 +1,5 @@
 PLUGIN_NAME ?= upstream-monitor
-VERSION ?= 0.5.2
+VERSION ?= 0.5.3
 BUILD_DIR ?= dist
 GOOS ?= $(shell go env GOOS)
 GOARCH ?= $(shell go env GOARCH)
@@ -19,7 +19,7 @@ CHECKSUM_PATH ?= $(ARCHIVE_PATH).sha256
 CHECKSUMS_PATH ?= $(BUILD_DIR)/checksums.txt
 SHA256 ?= $(shell command -v sha256sum || command -v shasum)
 
-.PHONY: build test vet load-check clean package checksums
+.PHONY: build test vet ui-test load-check clean package checksums
 
 build:
 	mkdir -p $(dir $(PLUGIN_OUTPUT))
@@ -32,6 +32,9 @@ test:
 
 vet:
 	go vet ./...
+
+ui-test:
+	./scripts/run-ui-tests.sh
 
 load-check: build
 	$(PLUGIN_LOAD_CHECK) $(GOARCH) $(PLUGIN_OUTPUT)
