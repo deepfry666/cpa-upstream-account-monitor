@@ -3,7 +3,7 @@ const { test, expect } = require("@playwright/test");
 test.use({ channel: "msedge" });
 
 const uiState = {
-  version: "0.5.1",
+  version: "0.5.2",
   generated_at: "2026-09-18T08:00:00Z",
   refreshing: false,
   providers: [

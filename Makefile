@@ -1,8 +1,10 @@
 PLUGIN_NAME ?= upstream-monitor
-VERSION ?= 0.5.1
+VERSION ?= 0.5.2
 BUILD_DIR ?= dist
 GOOS ?= $(shell go env GOOS)
 GOARCH ?= $(shell go env GOARCH)
+PLUGIN_LOAD_CHECK ?= scripts/check-plugin-load.sh
+SKIP_PLUGIN_LOAD_CHECK ?=
 
 EXT_linux = so
 EXT_freebsd = so
@@ -17,7 +19,7 @@ CHECKSUM_PATH ?= $(ARCHIVE_PATH).sha256
 CHECKSUMS_PATH ?= $(BUILD_DIR)/checksums.txt
 SHA256 ?= $(shell command -v sha256sum || command -v shasum)
 
-.PHONY: build test vet clean package checksums
+.PHONY: build test vet load-check clean package checksums
 
 build:
 	mkdir -p $(dir $(PLUGIN_OUTPUT))
@@ -31,7 +33,13 @@ test:
 vet:
 	go vet ./...
 
+load-check: build
+	$(PLUGIN_LOAD_CHECK) $(GOARCH) $(PLUGIN_OUTPUT)
+
 package: build
+	@if [ -z "$(SKIP_PLUGIN_LOAD_CHECK)" ]; then \
+		$(PLUGIN_LOAD_CHECK) $(GOARCH) $(PLUGIN_OUTPUT); \
+	fi
 	rm -rf $(BUILD_DIR)/package
 	mkdir -p $(BUILD_DIR)/package
 	cp $(PLUGIN_OUTPUT) $(BUILD_DIR)/package/$(PLUGIN_NAME).$(PLUGIN_EXT)

@@ -1,4 +1,4 @@
-# 上游账户监控 0.5.1 实施与测试矩阵
+# 上游账户监控 0.5.2 实施与测试矩阵
 
 本文对应《上游账户监控：完整修复实施方案》的 01-36 项，记录实现落点和可重复执行的自动化证据。插件技术 ID 仍为 `upstream-monitor`，动态库名仍为 `upstream-monitor.so`。
 
@@ -6,7 +6,8 @@
 
 - 01-08、10-36 已实现并通过 Go 单元/集成测试或 Playwright 场景覆盖。
 - 09 是外部接口限制：智谱 / Z.ai 的套餐周期额度可查询，但没有经过验证、可供插件调用的公开现金余额接口。UI、README 和测试只声明“暂不支持自动查询现金余额”，不把套餐额度当作现金余额，也不声明该项已补齐。
-- 最终发布前门槛为 `gofmt`、`git diff --check`、`go test -count=1 ./...`、`go test -race ./...`、`go vet ./...` 和完整 Playwright 套件；当前 Playwright 为 34 项。
+- 最终发布前门槛为 `gofmt`、`git diff --check`、`go test -count=1 ./...`、`go test -race ./...`、`go vet ./...`、完整 Playwright 套件和目标架构加载检查；当前 Playwright 为 34 项。
+- `make package` 在打包前执行 `scripts/check-plugin-load.sh`。AMD64 原生 `dlopen`，ARM64 通过交叉加载器和 `qemu-aarch64-static` 执行 `dlopen(RTLD_NOW)`，并解析四个宿主 ABI 必需符号。
 
 ## 逐项矩阵
 
@@ -62,6 +63,8 @@ go vet ./...
 NODE_PATH=/Users/jjjj/.npm/_npx/de56a0059759c86a/node_modules \
   /Users/jjjj/.npm/_npx/de56a0059759c86a/node_modules/.bin/playwright \
   test ui-smoke.spec.js --reporter=line
+make package VERSION=0.5.2 GOOS=linux GOARCH=amd64
+make package VERSION=0.5.2 GOOS=linux GOARCH=arm64
 ```
 
-构建发布包时使用 `VERSION=0.5.1`、`GOOS=linux`，分别构建 `GOARCH=amd64` 和 `GOARCH=arm64`。`dist/`、生成的 `.so`/`.h`、缓存、截图和真实凭证均不进入 Git。
+构建发布包时使用 `VERSION=0.5.2`、`GOOS=linux`，分别构建 `GOARCH=amd64` 和 `GOARCH=arm64`。两个 `make package` 都在 ZIP 生成前真实加载目标 `.so`；加载或符号解析失败会直接使构建失败。`dist/`、生成的 `.so`/`.h`、缓存、截图和真实凭证均不进入 Git。

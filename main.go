@@ -79,7 +79,7 @@ import (
 const pluginName = "upstream-monitor"
 const repositoryURL = "https://github.com/deepfry666/cpa-upstream-account-monitor"
 
-var pluginVersion = "0.5.1"
+var pluginVersion = "0.5.2"
 
 type envelope struct {
 	OK     bool            `json:"ok"`

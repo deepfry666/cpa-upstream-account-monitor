@@ -1,5 +1,16 @@
 # 更新日志
 
+## 0.5.2 - 2026-09-19
+
+本补丁不修改运行时行为、配置格式或缓存格式，补齐发布门槛中的 Linux 目标架构真实加载检查。
+
+### 发布验证
+
+- `make package` 在生成 ZIP 前执行真实 `dlopen(RTLD_NOW)`，并检查 `cliproxy_plugin_init`、`cliproxyPluginCall`、`cliproxyPluginFree`、`cliproxyPluginShutdown` 四个必需导出符号。
+- Linux AMD64 使用当前 x86_64 构建环境原生加载；Linux ARM64 使用 `aarch64-linux-gnu-gcc` 编译加载器，并通过 `qemu-aarch64-static` 加载目标动态库。
+- Linux ARM64 环境缺少 QEMU 时，从当前 apt 软件源下载 `qemu-user-static` 到临时目录，不把额外二进制提交到仓库或发布包。
+- Release 工作流继续使用既有 `make package` 步骤，因此两个架构任一加载失败都会阻止后续发布。
+
 ## 0.5.1 - 2026-09-19
 
 本补丁完成 v0.5.0 发布后复核发现的两项回归修复。存储格式和偏好格式继续保持版本 `2`，从 `0.5.0` 升级不需要迁移数据。
