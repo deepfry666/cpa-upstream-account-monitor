@@ -4,7 +4,7 @@
 
 “上游账户监控”是 [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) / CPA Manager Plus 的原生动态库插件。它从 CPA 配置和宿主凭证中独立发现上游账户，查询余额、额度、用量和健康状态，并提供中文优先的响应式管理页和只读机器接口。
 
-当前版本：`0.5.0`。插件技术 ID 和动态库名保持为 `upstream-monitor`，CPAMP 挂载入口不变。
+当前版本：`0.5.1`。插件技术 ID 和动态库名保持为 `upstream-monitor`，CPAMP 挂载入口不变。
 
 ## 核心行为
 
@@ -169,9 +169,9 @@ GET /v0/resource/plugins/upstream-monitor/api/v1/report
 ```bash
 make test
 make vet
-make package VERSION=0.5.0 GOOS=linux GOARCH=amd64
-make package VERSION=0.5.0 GOOS=linux GOARCH=arm64
-make checksums VERSION=0.5.0 GOOS=linux GOARCH=amd64
+make package VERSION=0.5.1 GOOS=linux GOARCH=amd64
+make package VERSION=0.5.1 GOOS=linux GOARCH=arm64
+make checksums VERSION=0.5.1 GOOS=linux GOARCH=amd64
 ```
 
 `$(basename upstream-monitor.so).h`、`dist/`、缓存、测试截图和真实凭证不进入 Git 或 Release。升级与回滚见 [迁移和回滚说明](./docs/MIGRATION_AND_ROLLBACK.md)，逐项证据见 [实施测试矩阵](./docs/IMPLEMENTATION_TEST_MATRIX.md)。

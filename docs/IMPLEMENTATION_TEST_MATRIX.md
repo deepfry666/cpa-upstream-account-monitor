@@ -1,4 +1,4 @@
-# 上游账户监控 0.5.0 实施与测试矩阵
+# 上游账户监控 0.5.1 实施与测试矩阵
 
 本文对应《上游账户监控：完整修复实施方案》的 01-36 项，记录实现落点和可重复执行的自动化证据。插件技术 ID 仍为 `upstream-monitor`，动态库名仍为 `upstream-monitor.so`。
 
@@ -6,7 +6,7 @@
 
 - 01-08、10-36 已实现并通过 Go 单元/集成测试或 Playwright 场景覆盖。
 - 09 是外部接口限制：智谱 / Z.ai 的套餐周期额度可查询，但没有经过验证、可供插件调用的公开现金余额接口。UI、README 和测试只声明“暂不支持自动查询现金余额”，不把套餐额度当作现金余额，也不声明该项已补齐。
-- 最终发布前门槛为 `gofmt`、`git diff --check`、`go test -count=1 ./...`、`go test -race ./...`、`go vet ./...` 和完整 Playwright 套件。
+- 最终发布前门槛为 `gofmt`、`git diff --check`、`go test -count=1 ./...`、`go test -race ./...`、`go vet ./...` 和完整 Playwright 套件；当前 Playwright 为 34 项。
 
 ## 逐项矩阵
 
@@ -26,9 +26,9 @@
 | 12 · 分清重新加载、刷新当前和刷新全部 | 已实现 | `main.go`、`background.go`、`ui.html` | `TestRefreshRouteWithAccountIDsSkipsOtherAccounts`、`TestRefreshRouteAsyncReturnsTrackableJob`、`TestRefreshRouteAsyncReportsPerAccountResult`、`TestRefreshRouteAsyncReportsSkippedFreshAccount`、`TestRefreshRouteRejectsUnknownScope`、`TestRefreshRouteRejectsUnknownAccountBeforeQueueing`、Playwright `single account refresh sends an explicit asynchronous request`、`refresh all sends the explicit all scope`、`reload only reads state and never starts a refresh` |
 | 13 · 所有网络路径落实超时与取消 | 已实现 | `main.go`、`background.go`、`adapters.go`、`proxy.go` | `TestRefreshAccountsEnforcesAccountBudget`、`TestRefreshAccountsDoesNotSerializeDifferentAccounts`、`TestRefreshAccountsCoalescesConcurrentSameAccount`、`TestRefreshAccountsCancelsSlowResponseBodyAtAccountBudget`、`TestBackgroundSchedulerStopsAndCancelsInflightRefresh`、`TestQueryEndpointClosesIdleConnectionsAfterRequest` |
 | 14 · 正确继承和覆盖代理 | 已实现 | `proxy.go`、`main.go`、`adapters.go` | `TestProviderViewsPreserveProxyInheritanceAndDirectOverride`、`TestQueryCandidateDirectOverrideBypassesInheritedProxy`、`TestQueryCandidateInheritsHostCredentialProxy`、`TestQueryCandidateCredentialDirectOverridesProviderProxy`、`TestQueryEndpointUsesSOCKS5Proxy`、`TestQueryEndpointUsesSOCKS5Authentication`、`TestQueryEndpointUsesHTTPProxyAuthentication`、`TestQueryEndpointRejectsUnsupportedProxySchemeWithoutDirectFallback`、`TestQueryEndpointProxyAuthenticationFailureDoesNotExposeCredentials`、`TestAccountProxyOverrideBeatsProviderProxy`、`TestAccountProxyURLOverrideBeatsProviderProxy`、`TestConfigureRejectsInvalidMonitorProxyMode`、`TestConfigureRejectsMonitorProxyURLModeWithoutURL`、`TestConfigureRejectsUnsupportedMonitorProxyScheme`、`TestConfigureRejectsMonitorProxyURLWithoutMode`、`TestConfigureRejectsMonitorProxyURLForDirectMode` |
-| 15 · 保存查询配置后自动更新结果 | 已实现 | `main.go`、`prefs.go`、`ui.html` | `TestProviderConfigRefreshStartsAfterQueryConfigurationChanges`、`TestProviderConfigRouteReturnsTrackedRefreshJob`、`TestProviderConfigRouteNoteOnlyChangeDoesNotRefresh`、Playwright `provider save sends revision and explicit PAT actions`、`provider save result remains visible after state refresh` |
+| 15 · 保存查询配置后自动更新结果 | 已实现 | `main.go`、`prefs.go`、`ui.html` | `TestProviderConfigRefreshStartsAfterQueryConfigurationChanges`、`TestProviderConfigRouteReturnsTrackedRefreshJob`、`TestProviderConfigRouteNoteOnlyChangeDoesNotRefresh`、`TestApplyThresholdsRecomputesExistingDerivedStatus`、Playwright `provider save sends revision and explicit PAT actions`、`provider save result remains visible after state refresh` |
 | 16 · 防止取消监控后旧请求恢复账户 | 已实现 | `main.go`、`cache.go` | `TestRefreshAccountsDiscardsSnapshotAfterMonitoringCanceled`、`TestCleanupInvalidatesInFlightQueryResults`、`TestBuildReportExcludesExplicitlyUnmonitoredAccounts`、`TestSnapshotStorePruneKeepsHistoryForRemovedAccount` |
-| 17 · 修复缓存版本识别与重启恢复 | 已实现 | `cache.go`、`storage.go` | `TestSnapshotStoreSavesVersionedCacheAndReloadsHistory`、`TestSnapshotStoreRejectsUnknownFutureVersionWithoutChangingMemory`、`TestSnapshotStorePruneKeepsHistoryForRemovedAccount`、`TestSnapshotStoreLoadsNoVersionEntriesHistoryFormat`、`TestSnapshotStoreLoadsLegacyAccountMapFormat`、`TestSnapshotStoreTruncatedLoadPreservesFileAndMemory`、`TestSnapshotStoreVersionedSaveReloadRoundTripsExactly` |
+| 17 · 修复缓存版本识别与重启恢复 | 已实现 | `cache.go`、`storage.go`、`main.go`、`ui.html` | `TestSnapshotStoreSavesVersionedCacheAndReloadsHistory`、`TestSnapshotStoreRejectsUnknownFutureVersionWithoutChangingMemory`、`TestSnapshotStorePruneKeepsHistoryForRemovedAccount`、`TestSnapshotStoreLoadsNoVersionEntriesHistoryFormat`、`TestSnapshotStoreLoadsLegacyAccountMapFormat`、`TestSnapshotStoreTruncatedLoadPreservesFileAndMemory`、`TestSnapshotStoreVersionedSaveReloadRoundTripsExactly`、`TestConfigureReportsCorruptCacheAndDoesNotOverwriteIt`、`TestApplyThresholdsPreservesNonThresholdWarnings`、Playwright `state warnings are shown in the status line` |
 | 18 · 配置保存原子化并报告持久化错误 | 已实现 | `prefs.go`、`storage.go`、`main.go` | `TestMonitorPrefsBatchFailureDoesNotPartiallyCommit`、`TestMonitorPrefsConcurrentBatchesPreserveBothChanges`、`TestMonitorPrefsConcurrentCASRejectsStaleWriter`、`TestProviderConfigRouteRejectsStaleRevisionWithoutChangingState`、`TestProviderConfigRouteRejectsInvalidBatchWithoutPartialCommit`、`TestProviderConfigRouteReportsSnapshotPersistenceWarning`、`TestProviderConfigRouteReportsPreferencePersistenceFailure`、`TestProviderConfigRouteAtomicallySavesPATWithoutEcho` |
 | 19 · 明确 PAT 编辑的三种操作 | 已实现 | `prefs.go`、`main.go`、`ui.html` | `TestMonitorPrefsBatchPATActionsAreExplicit`、`TestMonitorPrefsEncryptsAndReloadsPAT`、`TestProviderConfigRouteAtomicallySavesPATWithoutEcho`、Playwright `provider save sends revision and explicit PAT actions`、`changing provider adapter reveals its authentication field immediately` |
 | 20 · 密钥丢失时正确降级 | 已实现 | `prefs.go`、`main.go`、`storage.go` | `TestMonitorPrefsMissingKeyDoesNotOverwriteCiphertext`、`TestMonitorPrefsWrongKeyReportsDecryptError`、`TestMonitorPrefsMissingKeyStillSavesNonPATChanges`、`TestMonitorPrefsInvalidKeyStillLoadsNonPATState` |
@@ -64,4 +64,4 @@ NODE_PATH=/Users/jjjj/.npm/_npx/de56a0059759c86a/node_modules \
   test ui-smoke.spec.js --reporter=line
 ```
 
-构建发布包时使用 `VERSION=0.5.0`、`GOOS=linux`，分别构建 `GOARCH=amd64` 和 `GOARCH=arm64`。`dist/`、生成的 `.so`/`.h`、缓存、截图和真实凭证均不进入 Git。
+构建发布包时使用 `VERSION=0.5.1`、`GOOS=linux`，分别构建 `GOARCH=amd64` 和 `GOARCH=arm64`。`dist/`、生成的 `.so`/`.h`、缓存、截图和真实凭证均不进入 Git。

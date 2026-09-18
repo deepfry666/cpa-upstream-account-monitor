@@ -23,6 +23,7 @@ type snapshotStore struct {
 	saveMu    sync.Mutex
 	entries   map[string]accountSnapshot
 	history   map[string][]accountSnapshot
+	loadErr   error
 	writeFile func(string, []byte, os.FileMode) error
 }
 
@@ -144,20 +145,45 @@ func (s *snapshotStore) load(path string) error {
 	defer s.saveMu.Unlock()
 	raw, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
+		s.setLoadError(nil)
 		return nil
 	}
 	if err != nil {
-		return fmt.Errorf("read snapshot cache: %w", err)
+		wrapped := fmt.Errorf("read snapshot cache: %w", err)
+		s.setLoadError(wrapped)
+		return wrapped
 	}
 	entries, history, err := decodeSnapshotCache(raw)
 	if err != nil {
-		return fmt.Errorf("decode snapshot cache: %w", err)
+		wrapped := fmt.Errorf("decode snapshot cache: %w", err)
+		s.setLoadError(wrapped)
+		return wrapped
 	}
 	s.mu.Lock()
 	s.entries = entries
 	s.history = history
+	s.loadErr = nil
 	s.mu.Unlock()
 	return nil
+}
+
+func (s *snapshotStore) setLoadError(err error) {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	s.loadErr = err
+	s.mu.Unlock()
+}
+
+func (s *snapshotStore) loadError() error {
+	if s == nil {
+		return nil
+	}
+	s.mu.RLock()
+	err := s.loadErr
+	s.mu.RUnlock()
+	return err
 }
 
 func decodeSnapshotCache(raw []byte) (map[string]accountSnapshot, map[string][]accountSnapshot, error) {
@@ -276,6 +302,9 @@ func (s *snapshotStore) save(path string) error {
 	}
 	s.saveMu.Lock()
 	defer s.saveMu.Unlock()
+	if err := s.loadError(); err != nil {
+		return fmt.Errorf("refusing to overwrite unreadable snapshot cache: %w", err)
+	}
 	s.mu.RLock()
 	entries := make(map[string]accountSnapshot, len(s.entries))
 	history := make(map[string][]accountSnapshot, len(s.history))

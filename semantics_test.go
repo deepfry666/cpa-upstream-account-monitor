@@ -35,6 +35,63 @@ func TestApplyThresholdsUsesLowestQuotaFraction(t *testing.T) {
 	}
 }
 
+func TestApplyThresholdsRecomputesExistingDerivedStatus(t *testing.T) {
+	state.mu.Lock()
+	previous := state.cfg.Thresholds
+	state.cfg.Thresholds = thresholdConfig{WarningPercent: 20, CriticalPercent: 10}
+	state.mu.Unlock()
+	t.Cleanup(func() {
+		state.mu.Lock()
+		state.cfg.Thresholds = previous
+		state.mu.Unlock()
+	})
+
+	snapshot := accountSnapshot{
+		Kind:   kindPeriodQuota,
+		Status: statusOK,
+		Windows: []quotaWindow{
+			{RemainingFraction: floatPtr(0.15)},
+		},
+	}
+	snapshot = applyThresholds(snapshot)
+	if snapshot.Status != statusWarning {
+		t.Fatalf("initial status = %q, want warning", snapshot.Status)
+	}
+
+	state.mu.Lock()
+	state.cfg.Thresholds = thresholdConfig{WarningPercent: 10, CriticalPercent: 5}
+	state.mu.Unlock()
+	if got := applyThresholds(snapshot).Status; got != statusOK {
+		t.Fatalf("recomputed status = %q, want ok", got)
+	}
+}
+
+func TestApplyThresholdsPreservesNonThresholdWarnings(t *testing.T) {
+	state.mu.Lock()
+	previous := state.cfg.Thresholds
+	state.cfg.Thresholds = thresholdConfig{WarningPercent: 10, CriticalPercent: 5}
+	state.mu.Unlock()
+	t.Cleanup(func() {
+		state.mu.Lock()
+		state.cfg.Thresholds = previous
+		state.mu.Unlock()
+	})
+
+	snapshot := accountSnapshot{
+		Kind:   kindPeriodQuota,
+		Status: statusWarning,
+		Windows: []quotaWindow{
+			{RemainingFraction: floatPtr(0.75)},
+		},
+		Sections: map[string]sectionStatus{
+			"billing": {Status: "error", ErrorCode: "UPSTREAM_HTTP_503"},
+		},
+	}
+	if got := applyThresholds(snapshot).Status; got != statusWarning {
+		t.Fatalf("status = %q, want retained warning", got)
+	}
+}
+
 func TestApplyThresholdsTreatsOverageAsCritical(t *testing.T) {
 	state.mu.Lock()
 	previous := state.cfg.Thresholds

@@ -79,7 +79,7 @@ import (
 const pluginName = "upstream-monitor"
 const repositoryURL = "https://github.com/deepfry666/cpa-upstream-account-monitor"
 
-var pluginVersion = "0.5.0"
+var pluginVersion = "0.5.1"
 
 type envelope struct {
 	OK     bool            `json:"ok"`
@@ -1700,6 +1700,10 @@ func buildMonitorUIState(callbackID string) (monitorUIState, error) {
 	lastError := refreshStatus.lastErr
 	finished := refreshStatus.finished
 	refreshStatus.mu.RUnlock()
+	var warnings []string
+	if err := state.store.loadError(); err != nil {
+		warnings = append(warnings, "快照缓存恢复失败，已保留原文件并停止自动覆盖："+err.Error())
+	}
 	return monitorUIState{
 		Version:       pluginVersion,
 		GeneratedAt:   time.Now().UTC(),
@@ -1707,6 +1711,7 @@ func buildMonitorUIState(callbackID string) (monitorUIState, error) {
 		Refreshing:    refreshing,
 		LastRefresh:   finished,
 		LastError:     lastError,
+		Warnings:      warnings,
 		DirectorySync: syncStatus,
 		Providers:     providers,
 		Report:        buildReport(),
@@ -2138,12 +2143,21 @@ func sectionAlertMessage(section string) string {
 }
 
 func applyThresholds(snapshot accountSnapshot) accountSnapshot {
-	if snapshot.Kind == kindUnsupported || snapshot.Status != statusOK {
+	if snapshot.Kind == kindUnsupported {
+		return snapshot
+	}
+	if snapshot.baseStatus == "" {
+		snapshot.baseStatus = inferSnapshotBaseStatus(snapshot)
+	}
+	status := snapshot.baseStatus
+	switch status {
+	case statusError, statusUnknown, statusDisabled:
+		snapshot.Status = status
 		return snapshot
 	}
 	thresholds := state.effectiveThresholds()
-	if status := cashThresholdStatus(snapshot, thresholds); status != statusOK {
-		snapshot.Status = status
+	if thresholdStatus := cashThresholdStatus(snapshot, thresholds); thresholdStatus != statusOK {
+		status = maxStatus(status, thresholdStatus)
 	}
 	minimum := 1.0
 	found := false
@@ -2172,17 +2186,19 @@ func applyThresholds(snapshot accountSnapshot) accountSnapshot {
 		}
 	}
 	if overage {
-		snapshot.Status = statusCritical
+		snapshot.Status = maxStatus(status, statusCritical)
 		return snapshot
 	}
 	if !found {
+		snapshot.Status = status
 		return snapshot
 	}
 	if minimum*100 <= thresholds.CriticalPercent {
-		snapshot.Status = statusCritical
+		status = maxStatus(status, statusCritical)
 	} else if minimum*100 <= thresholds.WarningPercent {
-		snapshot.Status = maxStatus(snapshot.Status, statusWarning)
+		status = maxStatus(status, statusWarning)
 	}
+	snapshot.Status = status
 	return snapshot
 }
 

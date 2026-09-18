@@ -1360,7 +1360,7 @@
         ><span class="brand-sub">CPA / CPAMP</span>
       </div>
       <div class="top-actions">
-        <span id="version" class="version">v0.5.0</span
+        <span id="version" class="version">v0.5.1</span
         ><button
           id="refresh-all"
           class="btn"
@@ -3895,10 +3895,18 @@
         try {
           const data = await api("/v0/management/upstream-monitor/state");
           uiState = data;
-          statusLine.className = "status-text";
-          statusLine.textContent = data.refreshing
-            ? "已加载快照，后台正在刷新"
-            : "已加载快照";
+          const warnings = Array.isArray(data.warnings)
+            ? data.warnings.filter(Boolean)
+            : [];
+          if (warnings.length) {
+            statusLine.className = "status-text error";
+            statusLine.textContent = warnings.join("；");
+          } else {
+            statusLine.className = "status-text";
+            statusLine.textContent = data.refreshing
+              ? "已加载快照，后台正在刷新"
+              : "已加载快照";
+          }
           $("#version").textContent = `v${data.version || "0.2.0"}`;
           updateSummary();
           if (data.refreshing) {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -18,6 +19,7 @@ import (
 
 func useTestPluginState(t *testing.T, sourceConfig string) {
 	t.Helper()
+	dir := t.TempDir()
 	previous := state
 	state = &pluginState{
 		store:         newSnapshotStore(),
@@ -30,7 +32,6 @@ func useTestPluginState(t *testing.T, sourceConfig string) {
 		state = previous
 	})
 
-	dir := t.TempDir()
 	sourcePath := filepath.Join(dir, "config.yaml")
 	if err := os.WriteFile(sourcePath, []byte(sourceConfig), 0o600); err != nil {
 		t.Fatal(err)
@@ -767,6 +768,54 @@ func TestProviderConfigRouteReportsSnapshotPersistenceWarning(t *testing.T) {
 	}
 	if len(view.Warnings) == 0 || !strings.Contains(view.Warnings[0], "快照") {
 		t.Fatalf("snapshot persistence warning = %#v", view.Warnings)
+	}
+}
+
+func TestConfigureReportsCorruptCacheAndDoesNotOverwriteIt(t *testing.T) {
+	useTestPluginState(t, `openai-compatibility:
+  - name: Test Relay
+    base-url: https://relay.example/v1
+    api-key-entries:
+      - api-key: rk-secret
+`)
+	state.mu.RLock()
+	cachePath := state.cfg.CachePath
+	sourcePath := state.cfg.SourceConfigPath
+	preferencesPath := state.cfg.PreferencesPath
+	state.mu.RUnlock()
+
+	corrupt := []byte(`{"format_version":999,"entries":`)
+	if err := os.WriteFile(cachePath, corrupt, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := json.Marshal(map[string]any{
+		"source_config_path": sourcePath,
+		"cache_path":         cachePath,
+		"preferences_path":   preferencesPath,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := configure(raw); err != nil {
+		t.Fatal(err)
+	}
+
+	view, err := buildMonitorUIState("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(view.Warnings) == 0 || !strings.Contains(strings.Join(view.Warnings, " "), "缓存") {
+		t.Fatalf("cache recovery warning = %#v", view.Warnings)
+	}
+	if err := state.store.save(cachePath); err == nil {
+		t.Fatal("save overwrote an unreadable snapshot cache")
+	}
+	after, err := os.ReadFile(cachePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(after, corrupt) {
+		t.Fatalf("corrupt cache changed:\nbefore=%q\nafter=%q", corrupt, after)
 	}
 }
 

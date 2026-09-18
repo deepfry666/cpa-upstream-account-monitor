@@ -3,7 +3,7 @@ const { test, expect } = require("@playwright/test");
 test.use({ channel: "msedge" });
 
 const uiState = {
-  version: "0.5.0",
+  version: "0.5.1",
   generated_at: "2026-09-18T08:00:00Z",
   refreshing: false,
   providers: [
@@ -173,6 +173,30 @@ test.beforeEach(async ({ page }) => {
       });
     },
   );
+});
+
+test("state warnings are shown in the status line", async ({ page }) => {
+  const state = structuredClone(uiState);
+  state.warnings = [
+    "快照缓存恢复失败，已保留原文件并停止自动覆盖：decode snapshot cache",
+  ];
+  await page.unroute("**/v0/management/upstream-monitor/state");
+  await page.route(
+    "**/v0/management/upstream-monitor/state",
+    async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(state),
+      });
+    },
+  );
+
+  await page.goto("http://127.0.0.1:8765/ui.html");
+
+  const statusLine = page.locator("#status-line");
+  await expect(statusLine).toContainText("快照缓存恢复失败");
+  await expect(statusLine).toHaveClass(/error/);
 });
 
 test("Z.ai cash balance limitation renders with console action", async ({ page }) => {

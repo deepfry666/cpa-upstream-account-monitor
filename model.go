@@ -98,6 +98,45 @@ type accountSnapshot struct {
 	Warnings       []string                 `json:"warnings,omitempty"`
 	Sections       map[string]sectionStatus `json:"sections,omitempty"`
 	Details        map[string]any           `json:"details,omitempty"`
+	baseStatus     accountStatus
+}
+
+func inferSnapshotBaseStatus(snapshot accountSnapshot) accountStatus {
+	switch snapshot.Status {
+	case statusError, statusUnknown, statusDisabled:
+		return snapshot.Status
+	}
+	status := statusOK
+	if snapshot.Error != nil {
+		status = maxStatus(status, statusWarning)
+	}
+	for _, section := range snapshot.Sections {
+		if section.Status == "error" {
+			status = maxStatus(status, statusWarning)
+		}
+	}
+	for _, balance := range snapshot.Balances {
+		if balance.BalanceType != "total" {
+			continue
+		}
+		amount, ok := numericValue(balance.Amount)
+		if ok && amount <= 0 {
+			return statusCritical
+		}
+	}
+	for _, window := range snapshot.Windows {
+		if excess, ok := numericValue(window.ExcessAmount); ok && excess > 0 {
+			return statusCritical
+		}
+	}
+	for _, quantity := range snapshot.Quantities {
+		total, okTotal := numericValue(quantity.Total)
+		used, okUsed := numericValue(quantity.Used)
+		if okTotal && okUsed && total > 0 && used > total {
+			return statusCritical
+		}
+	}
+	return status
 }
 
 type sectionStatus struct {
