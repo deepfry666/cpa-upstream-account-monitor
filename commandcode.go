@@ -1,28 +1,17 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/url"
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 )
 
 const commandCodeAPIBase = "https://api.commandcode.ai"
 const commandCodeCLIVersion = "1.56.0"
-
-var commandCodePlanMonthlyCredits = map[string]float64{
-	"individual-go":       10,
-	"individual-goat":     70,
-	"individual-pro":      30,
-	"individual-pro-v1":   80,
-	"individual-provider": 15,
-	"individual-max":      150,
-	"individual-ultra":    300,
-	"teams-pro":           40,
-}
 
 var commandCodePlanNames = map[string]string{
 	"individual-go":       "GO",
@@ -35,10 +24,10 @@ var commandCodePlanNames = map[string]string{
 	"teams-pro":           "TEAMS PRO",
 }
 
-func queryCommandCodeSnapshot(callbackID string, candidate credentialCandidate, token string) (accountSnapshot, error) {
+func queryCommandCodeSnapshot(ctx context.Context, callbackID string, candidate credentialCandidate, token string) (accountSnapshot, error) {
 	candidate = normalizeCommandCodeCandidate(candidate)
 	whoamiEndpoint := commandCodeEndpoint(candidate.BaseURL, "/alpha/whoami", url.Values{"limits": {"1"}})
-	whoamiResponse, err := queryCommandCodeEndpoint(callbackID, whoamiEndpoint, token, candidate.ProxyURL)
+	whoamiResponse, err := queryCommandCodeEndpoint(ctx, callbackID, whoamiEndpoint, token, candidateProxyURL(candidate))
 	if err != nil {
 		return accountSnapshot{}, fmt.Errorf("查询 Command Code 账户信息失败: %w", err)
 	}
@@ -61,15 +50,15 @@ func queryCommandCodeSnapshot(callbackID string, candidate credentialCandidate, 
 	wg.Add(3)
 	go func() {
 		defer wg.Done()
-		creditsResponse, creditsErr = queryCommandCodeEndpoint(callbackID, commandCodeEndpoint(candidate.BaseURL, "/alpha/billing/credits", query), token, candidate.ProxyURL)
+		creditsResponse, creditsErr = queryCommandCodeEndpoint(ctx, callbackID, commandCodeEndpoint(candidate.BaseURL, "/alpha/billing/credits", query), token, candidateProxyURL(candidate))
 	}()
 	go func() {
 		defer wg.Done()
-		subscriptionResponse, subscriptionErr = queryCommandCodeEndpoint(callbackID, commandCodeEndpoint(candidate.BaseURL, "/alpha/billing/subscriptions", query), token, candidate.ProxyURL)
+		subscriptionResponse, subscriptionErr = queryCommandCodeEndpoint(ctx, callbackID, commandCodeEndpoint(candidate.BaseURL, "/alpha/billing/subscriptions", query), token, candidateProxyURL(candidate))
 	}()
 	go func() {
 		defer wg.Done()
-		usageResponse, usageErr = queryCommandCodeEndpoint(callbackID, commandCodeEndpoint(candidate.BaseURL, "/alpha/usage/summary", query), token, candidate.ProxyURL)
+		usageResponse, usageErr = queryCommandCodeEndpoint(ctx, callbackID, commandCodeEndpoint(candidate.BaseURL, "/alpha/usage/summary", query), token, candidateProxyURL(candidate))
 	}()
 	wg.Wait()
 
@@ -91,13 +80,38 @@ func queryCommandCodeSnapshot(callbackID string, candidate credentialCandidate, 
 	if err != nil {
 		return accountSnapshot{}, err
 	}
+	subscriptionFailure := ""
 	if subscriptionErr != nil || subscriptionResponse.StatusCode < 200 || subscriptionResponse.StatusCode >= 300 {
+		subscriptionFailure = commandCodeFailureCode(subscriptionErr, subscriptionResponse.StatusCode)
+	}
+	usageFailure := ""
+	if usageErr != nil || usageResponse.StatusCode < 200 || usageResponse.StatusCode >= 300 {
+		usageFailure = commandCodeFailureCode(usageErr, usageResponse.StatusCode)
+	}
+	snapshot = applyCommandCodePartialFailures(snapshot, subscriptionFailure, usageFailure)
+	return snapshot, nil
+}
+
+func commandCodeFailureCode(err error, statusCode int) string {
+	if err != nil {
+		return "UPSTREAM_REQUEST_FAILED"
+	}
+	if statusCode > 0 {
+		return fmt.Sprintf("UPSTREAM_HTTP_%d", statusCode)
+	}
+	return "UPSTREAM_ERROR"
+}
+
+func applyCommandCodePartialFailures(snapshot accountSnapshot, subscriptionFailure, usageFailure string) accountSnapshot {
+	if subscriptionFailure != "" {
+		markSectionError(&snapshot, "subscription", subscriptionFailure, "套餐信息暂时不可用；Credits 余额仍按已获取数据展示。")
 		snapshot.Warnings = append(snapshot.Warnings, "套餐信息暂时不可用；Credits 余额仍按已获取数据展示。")
 	}
-	if usageErr != nil || usageResponse.StatusCode < 200 || usageResponse.StatusCode >= 300 {
+	if usageFailure != "" {
+		markSectionError(&snapshot, "usage", usageFailure, "本周期用量统计暂时不可用；余额与窗口额度仍正常展示。")
 		snapshot.Warnings = append(snapshot.Warnings, "本周期用量统计暂时不可用；余额与窗口额度仍正常展示。")
 	}
-	return snapshot, nil
+	return snapshot
 }
 
 func parseCommandCodeSnapshot(candidate credentialCandidate, whoamiBody, creditsBody, subscriptionBody, usageBody []byte) (accountSnapshot, error) {
@@ -124,15 +138,11 @@ func parseCommandCodeSnapshot(candidate credentialCandidate, whoamiBody, credits
 	subscription, subscriptionOK := parseCommandCodeSubscription(subscriptionBody)
 	usage, usageOK := parseCommandCodeObject(usageBody)
 	planID := firstNonEmpty(stringValue(credits, "planId"), stringValue(subscription, "planId"))
-	planMonthlyCredits := commandCodePlanMonthlyCredits[strings.ToLower(planID)]
 	monthlyGranted := monthlyCredits
 	monthlyGrantedExplicit := false
 	if granted, ok := commandCodeNumber(credits, "monthlyCreditsGranted"); ok && granted > 0 {
 		monthlyGranted = granted
 		monthlyGrantedExplicit = true
-	}
-	if planMonthlyCredits > monthlyGranted {
-		monthlyGranted = planMonthlyCredits
 	}
 	if monthlyGranted < monthlyCredits {
 		monthlyGranted = monthlyCredits
@@ -140,19 +150,28 @@ func parseCommandCodeSnapshot(candidate credentialCandidate, whoamiBody, credits
 
 	active := commandCodeSubscriptionActive(subscription, subscriptionOK)
 	totalRemaining := monthlyCredits + purchasedCredits + freeCredits
-	totalPool := totalRemaining
-	if active {
-		activePlanPool := maxFloat(planMonthlyCredits, monthlyCredits)
-		totalPool = activePlanPool + purchasedCredits + freeCredits
-	} else if usageOK {
+	monthlyTotal := ""
+	monthlyUsed := ""
+	availableTotal := ""
+	availableUsed := ""
+	if monthlyGrantedExplicit {
+		monthlyTotal = commandCodeQuantityNumber(monthlyGranted)
+		monthlyUsed = commandCodeQuantityNumber(maxFloat(monthlyGranted-monthlyCredits, 0))
+		totalPool := monthlyGranted + purchasedCredits + freeCredits
+		if totalPool < totalRemaining {
+			totalPool = totalRemaining
+		}
+		availableTotal = commandCodeQuantityNumber(totalPool)
+		availableUsed = commandCodeQuantityNumber(maxFloat(totalPool-totalRemaining, 0))
+	}
+	estimatedPool := ""
+	estimatedUsed := ""
+	if !monthlyGrantedExplicit && usageOK {
 		if totalCost, ok := commandCodeNumber(usage, "totalCost", "totalCredits"); ok && totalCost >= 0 {
-			totalPool = totalCost + totalRemaining
+			estimatedPool = commandCodeQuantityNumber(totalCost + totalRemaining)
+			estimatedUsed = commandCodeQuantityNumber(totalCost)
 		}
 	}
-	if totalPool < totalRemaining {
-		totalPool = totalRemaining
-	}
-	usedCredits := maxFloat(totalPool-totalRemaining, 0)
 
 	snapshot := accountSnapshot{
 		AccountID:    candidate.AuthIndex,
@@ -169,8 +188,8 @@ func parseCommandCodeSnapshot(candidate credentialCandidate, whoamiBody, credits
 				Scope:     "account",
 				Source:    "combined",
 				Remaining: commandCodeQuantityNumber(totalRemaining),
-				Total:     commandCodeQuantityNumber(totalPool),
-				Used:      commandCodeQuantityNumber(usedCredits),
+				Total:     availableTotal,
+				Used:      availableUsed,
 				Unit:      "credits",
 			},
 			{
@@ -178,8 +197,8 @@ func parseCommandCodeSnapshot(candidate credentialCandidate, whoamiBody, credits
 				Scope:     "account",
 				Source:    "subscription",
 				Remaining: commandCodeQuantityNumber(monthlyCredits),
-				Total:     commandCodeQuantityNumber(maxFloat(monthlyGranted, monthlyCredits)),
-				Used:      commandCodeQuantityNumber(maxFloat(maxFloat(monthlyGranted, monthlyCredits)-monthlyCredits, 0)),
+				Total:     monthlyTotal,
+				Used:      monthlyUsed,
 				Unit:      "credits",
 			},
 			{
@@ -230,9 +249,6 @@ func parseCommandCodeSnapshot(candidate credentialCandidate, whoamiBody, credits
 			parsedWindows[definition.name] = window
 		}
 	}
-	if parsedWindows["month"] == nil && monthlyGranted > 0 && (active || monthlyGrantedExplicit) {
-		parsedWindows["month"] = commandCodeMonthlyWindow(monthlyCredits, monthlyGranted, timeValue(subscription, "currentPeriodEnd", "periodEnd", "endsAt"))
-	}
 	for _, name := range []string{"fiveHour", "weekly", "month"} {
 		if window := parsedWindows[name]; window != nil {
 			snapshot.Windows = append(snapshot.Windows, *window)
@@ -251,9 +267,10 @@ func parseCommandCodeSnapshot(candidate credentialCandidate, whoamiBody, credits
 		"plan": map[string]any{
 			"id":                    planID,
 			"name":                  planName,
-			"monthlyCredits":        planMonthlyCredits,
+			"monthlyCredits":        monthlyGranted,
 			"monthlyCreditsGranted": monthlyGranted,
 			"active":                active,
+			"grantExplicit":         monthlyGrantedExplicit,
 		},
 		"credits": credits,
 		"account": map[string]any{
@@ -262,6 +279,13 @@ func parseCommandCodeSnapshot(candidate credentialCandidate, whoamiBody, credits
 			"orgLogin": stringValue(org, "login", "name", "slug"),
 			"userName": stringValue(user, "userName", "name", "login", "email"),
 		},
+	}
+	if estimatedPool != "" || estimatedUsed != "" {
+		snapshot.Details["estimate"] = map[string]any{
+			"availableTotal": estimatedPool,
+			"used":           estimatedUsed,
+			"basis":          "本周期费用 + 当前可用 Credits",
+		}
 	}
 	if subscriptionOK {
 		snapshot.Details["subscription"] = subscription
@@ -287,8 +311,8 @@ func parseCommandCodeSnapshot(candidate credentialCandidate, whoamiBody, credits
 	return snapshot, nil
 }
 
-func queryCommandCodeEndpoint(callbackID, endpoint, token, proxyURL string) (hostHTTPResponse, error) {
-	return queryEndpointWithHeaders(callbackID, endpoint, "Bearer "+token, proxyURL, map[string]string{
+func queryCommandCodeEndpoint(ctx context.Context, callbackID, endpoint, token, proxyURL string) (hostHTTPResponse, error) {
+	return queryEndpointWithHeadersContext(ctx, callbackID, endpoint, "Bearer "+token, proxyURL, map[string]string{
 		"User-Agent":             "commandcode-quota/" + commandCodeCLIVersion,
 		"x-command-code-version": commandCodeCLIVersion,
 		"x-cli-environment":      "production",
@@ -439,27 +463,6 @@ func commandCodeWindow(name string, object map[string]any) (*quotaWindow, error)
 		Unit:              "credits",
 		ResetAt:           timeValue(object, "resetAt", "reset_at", "resetsAt"),
 	}, nil
-}
-
-func commandCodeMonthlyWindow(remaining, total float64, resetAt *time.Time) *quotaWindow {
-	if total <= 0 {
-		return nil
-	}
-	remaining = maxFloat(remaining, 0)
-	if remaining > total {
-		total = remaining
-	}
-	fraction := remaining / total
-	usedFraction := 1 - fraction
-	return &quotaWindow{
-		Name:              "month",
-		RemainingFraction: &fraction,
-		UsedFraction:      &usedFraction,
-		RemainingAmount:   commandCodeQuantityNumber(remaining),
-		TotalAmount:       commandCodeQuantityNumber(total),
-		Unit:              "credits",
-		ResetAt:           resetAt,
-	}
 }
 
 func commandCodeEndpoint(baseURL, path string, query url.Values) string {

@@ -293,6 +293,15 @@
       .status-text.error {
         color: var(--danger);
       }
+      .status-action {
+        margin-left: 6px;
+        padding: 2px 6px;
+        border: 1px solid currentColor;
+        border-radius: 4px;
+        background: transparent;
+        color: var(--accent);
+        font: inherit;
+      }
       .tabs {
         display: flex;
         gap: 24px;
@@ -711,6 +720,28 @@
       .detail-section:last-child {
         border-bottom: 0;
       }
+      .raw-data {
+        max-height: 320px;
+        margin: 0;
+        overflow: auto;
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: var(--soft);
+        color: var(--ink);
+        font:
+          11px/1.55 ui-monospace,
+          SFMono-Regular,
+          Consolas,
+          monospace;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+      .history-inline-title {
+        margin-bottom: 12px;
+        color: var(--muted);
+        font-size: 12px;
+      }
       .section-head {
         display: flex;
         align-items: center;
@@ -764,6 +795,13 @@
         border: 1px solid var(--line);
         border-radius: 6px;
         background: var(--surface-muted);
+      }
+      .metric-row.alert-target,
+      .notice.alert-target,
+      .detail-section.alert-target {
+        border-color: var(--warning);
+        background: var(--warning-bg);
+        box-shadow: 0 0 0 2px color-mix(in srgb, var(--warning) 24%, transparent);
       }
       .metric-top {
         display: flex;
@@ -821,6 +859,14 @@
       }
       .notice + .notice {
         margin-top: 8px;
+      }
+      .notice a {
+        color: inherit;
+        font-weight: 650;
+      }
+      .notice-title {
+        display: block;
+        margin-bottom: 2px;
       }
       .error-box {
         padding: 11px 12px;
@@ -909,6 +955,12 @@
       .config-table tr:last-child td {
         border-bottom: 0;
       }
+      .provider-expand-button {
+        display: none;
+      }
+      .provider-monitor-label {
+        display: none;
+      }
       .config-name {
         font-weight: 700;
       }
@@ -940,6 +992,22 @@
         height: 32px;
         font-size: 12px;
       }
+      .account-threshold-editor {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(92px, 1fr));
+        gap: 6px;
+        min-width: 205px;
+      }
+      .account-threshold-editor input {
+        width: 100%;
+        min-width: 0;
+        height: 32px;
+        font-size: 12px;
+      }
+      .account-threshold-editor .mini-button {
+        grid-column: 1/-1;
+        justify-self: start;
+      }
       .mini-button {
         min-height: 30px;
         padding: 4px 8px;
@@ -969,6 +1037,25 @@
         color: var(--muted);
         font-size: 11px;
       }
+      .cleanup-confirmation {
+        display: grid;
+        gap: 12px;
+        padding: 16px 18px;
+        border-top: 1px solid var(--line-strong);
+        background: var(--danger-bg);
+      }
+      .cleanup-confirmation h3 {
+        color: var(--danger);
+      }
+      .cleanup-confirmation p {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .cleanup-confirm-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
       .settings-panel {
         margin-bottom: 14px;
       }
@@ -980,6 +1067,70 @@
         grid-template-columns: repeat(4, minmax(0, 1fr));
         gap: 1px;
         background: var(--line);
+      }
+      .settings-form {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+        padding: 18px;
+      }
+      .settings-form .field {
+        min-width: 0;
+      }
+      .settings-form input {
+        width: 100%;
+      }
+      .settings-actions {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        grid-column: 1/-1;
+      }
+      .settings-feedback {
+        min-width: 0;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .settings-subsection {
+        grid-column: 1/-1;
+        padding-top: 4px;
+      }
+      .settings-subsection h3 {
+        margin: 0;
+        color: var(--ink);
+        font-size: 14px;
+      }
+      .settings-subsection .panel-note {
+        margin: 5px 0 12px;
+      }
+      .cash-threshold-list {
+        display: grid;
+        gap: 10px;
+      }
+      .cash-threshold-row {
+        display: grid;
+        grid-template-columns: 84px minmax(0, 1fr) minmax(0, 1fr) auto;
+        align-items: end;
+        gap: 12px;
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--surface-muted);
+      }
+      .cash-threshold-currency {
+        align-self: center;
+        font:
+          650 14px/1.3 ui-monospace,
+          SFMono-Regular,
+          Consolas,
+          monospace;
+      }
+      .cash-threshold-add {
+        display: flex;
+        align-items: end;
+        gap: 10px;
+        margin-top: 12px;
       }
       .setting-cell {
         padding: 16px 18px;
@@ -1088,6 +1239,100 @@
         .settings-grid {
           grid-template-columns: repeat(2, minmax(0, 1fr));
         }
+        .settings-form {
+          grid-template-columns: 1fr;
+        }
+        .settings-actions {
+          align-items: stretch;
+          flex-direction: column;
+        }
+        .cash-threshold-row {
+          grid-template-columns: 1fr;
+        }
+        .cash-threshold-add {
+          align-items: stretch;
+          flex-direction: column;
+        }
+        .config-table-wrap {
+          overflow: visible;
+        }
+        .config-table {
+          display: block;
+          min-width: 0;
+        }
+        .config-table thead {
+          display: none;
+        }
+        .config-table tbody {
+          display: grid;
+          gap: 10px;
+          padding: 10px;
+        }
+        .config-table tr {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) auto;
+          border: 1px solid var(--line);
+          border-radius: 7px;
+          background: var(--surface);
+          overflow: hidden;
+        }
+        .config-table td {
+          display: none;
+          width: 100%;
+          padding: 11px 12px;
+          border-bottom: 1px solid var(--line);
+        }
+        .config-table td.provider-name-cell,
+        .config-table td.provider-monitor-cell,
+        .config-table tr.expanded td.provider-advanced {
+          display: block;
+        }
+        .config-table td.provider-name-cell {
+          grid-column: 1;
+          grid-row: 1;
+          border-bottom: 0;
+        }
+        .config-table td.provider-monitor-cell {
+          display: flex;
+          grid-column: 2;
+          grid-row: 1;
+          align-items: center;
+          gap: 6px;
+          padding-left: 4px;
+          border-bottom: 0;
+        }
+        .config-table tr.expanded td.provider-advanced:last-child {
+          border-bottom: 0;
+        }
+        .config-table td.provider-advanced::before {
+          display: block;
+          margin-bottom: 5px;
+          color: var(--muted);
+          font-size: 11px;
+          font-weight: 700;
+          content: attr(data-label);
+        }
+        .provider-expand-button,
+        .provider-monitor-label {
+          display: inline-flex;
+        }
+        .provider-expand-button {
+          margin-top: 8px;
+        }
+        .config-table select,
+        .config-table input[type="text"],
+        .pat-editor input {
+          width: 100%;
+          min-width: 0;
+        }
+        .pat-editor,
+        .account-threshold-editor {
+          min-width: 0;
+        }
+        .pat-editor {
+          align-items: stretch;
+          flex-direction: column;
+        }
         .alert-row {
           grid-template-columns: 7px minmax(0, 1fr);
         }
@@ -1115,7 +1360,16 @@
         ><span class="brand-sub">CPA / CPAMP</span>
       </div>
       <div class="top-actions">
-        <span id="version" class="version">v0.4.1</span
+        <span id="version" class="version">v0.5.0</span
+        ><button
+          id="refresh-all"
+          class="btn"
+          type="button"
+          aria-label="刷新全部"
+          title="刷新全部"
+        >
+          刷新全部
+        </button
         ><button
           id="header-refresh"
           class="btn btn-icon"
@@ -1178,9 +1432,17 @@
           type="button"
           role="tab"
           aria-selected="false"
-          data-tab="settings"
+          data-tab="monitor-settings"
         >
-          数据配置
+          监控设置</button
+        ><button
+          class="tab"
+          type="button"
+          role="tab"
+          aria-selected="false"
+          data-tab="data-status"
+        >
+          数据状态
         </button>
       </nav>
       <section id="monitor-view" data-view="monitor">
@@ -1235,6 +1497,7 @@
               placeholder="搜索账户或供应商"
               aria-label="搜索账户或供应商"
             /><select id="sort" class="sort" aria-label="账户排序">
+              <option value="stable">按首次发现</option>
               <option value="status">按状态</option>
               <option value="name">按名称</option>
               <option value="kind">按计费类型</option>
@@ -1291,6 +1554,7 @@
         <section
           id="history-panel"
           class="history-panel hidden"
+          tabindex="-1"
           aria-labelledby="history-title"
         >
           <div class="history-head">
@@ -1325,6 +1589,7 @@
                   <th>Base URL</th>
                   <th>查询方式</th>
                   <th>NewAPI 管理 PAT</th>
+                  <th>账户阈值覆盖</th>
                   <th>操作</th>
                 </tr>
               </thead>
@@ -1338,13 +1603,135 @@
               新增配置后重新加载即可同步。</span
             >
           </div>
+          <section
+            id="cleanup-confirmation"
+            class="cleanup-confirmation hidden"
+            role="alertdialog"
+            aria-modal="false"
+            aria-labelledby="cleanup-confirmation-title"
+            aria-describedby="cleanup-confirmation-message"
+          >
+            <h3 id="cleanup-confirmation-title">确认清除监控记录</h3>
+            <p id="cleanup-confirmation-message"></p>
+            <div class="cleanup-confirm-actions">
+              <button
+                id="cleanup-confirm-cancel"
+                class="btn"
+                type="button"
+              >
+                取消清除
+              </button>
+              <button
+                id="cleanup-confirm-submit"
+                class="btn btn-primary"
+                type="button"
+              >
+                确认清除记录
+              </button>
+            </div>
+          </section>
         </div>
       </section>
-      <section id="settings-view" class="hidden" data-view="settings">
+      <section
+        id="monitor-settings-view"
+        class="hidden"
+        data-view="monitor-settings"
+      >
         <div class="settings-panel">
           <div class="settings-head">
             <div>
-              <h2>数据配置</h2>
+              <h2>监控设置</h2>
+              <p class="panel-note">
+                周期额度使用剩余比例阈值；保存后立即重新评估告警，不请求上游。
+              </p>
+            </div>
+          </div>
+          <div id="settings-form-slot">
+          <form id="settings-form" class="settings-form">
+            <div class="field">
+              <label for="settings-warning-percent">注意阈值（剩余 %）</label>
+              <input
+                id="settings-warning-percent"
+                name="warning_percent"
+                type="number"
+                min="0.01"
+                max="100"
+                step="0.01"
+                inputmode="decimal"
+              />
+            </div>
+            <div class="field">
+              <label for="settings-critical-percent">严重阈值（剩余 %）</label>
+              <input
+                id="settings-critical-percent"
+                name="critical_percent"
+                type="number"
+                min="0.01"
+                max="100"
+                step="0.01"
+                inputmode="decimal"
+              />
+            </div>
+            <div class="settings-subsection">
+              <h3>现金低余额规则</h3>
+              <p class="panel-note">
+                币种规则作为默认值；账户覆盖优先。金额使用对应币种，留空表示未配置。
+              </p>
+              <div
+                id="cash-currency-thresholds"
+                class="cash-threshold-list"
+              ></div>
+              <div class="cash-threshold-add">
+                <div class="field">
+                  <label for="cash-currency-add">新增币种</label
+                  ><input
+                    id="cash-currency-add"
+                    type="text"
+                    maxlength="12"
+                    placeholder="例如 USD"
+                  />
+                </div>
+                <button
+                  id="cash-currency-add-button"
+                  class="btn"
+                  type="button"
+                  aria-label="添加币种阈值"
+                >
+                  添加
+                </button>
+              </div>
+            </div>
+            <div class="settings-actions">
+              <span id="settings-feedback" class="settings-feedback"
+                >尚未修改</span
+              ><button id="save-settings" class="btn btn-primary" type="submit">
+                保存监控设置
+              </button>
+            </div>
+          </form>
+          </div>
+        </div>
+        <div class="settings-panel">
+          <div class="settings-head">
+            <div>
+              <h2>删除与清理</h2>
+              <p class="panel-note">
+                删除监控记录不会删除 CPA 中的供应商或 API Key。
+              </p>
+            </div>
+          </div>
+          <div class="detail-section">
+            <div class="notice">
+              请在“供应商配置”中取消勾选来停止监控；需要清除某个账户的已保存快照时，可在配置表中使用“清除记录”。
+            </div>
+          </div>
+        </div>
+      </section>
+      <section id="data-status-view" class="hidden" data-view="data-status">
+        <div class="settings-panel">
+          <div class="settings-head">
+            <div>
+              <h2>数据状态</h2>
               <p class="panel-note">
                 打开页面先读取快照；过期时后台刷新，刷新期间保留旧数据。
               </p>
@@ -1362,6 +1749,13 @@
             </div>
             <div class="setting-cell">
               <span>刷新状态</span><strong id="setting-refreshing">-</strong>
+            </div>
+            <div class="setting-cell">
+              <span>同步方式</span><strong id="data-sync-mode">-</strong>
+            </div>
+            <div class="setting-cell">
+              <span>CPA 目录同步</span
+              ><strong id="data-directory-sync">-</strong>
             </div>
           </div>
         </div>
@@ -1388,15 +1782,34 @@
         statusLine = $("#status-line"),
         railList = $("#rail-list"),
         accountSelect = $("#account-select"),
-        detail = $("#detail");
+        detail = $("#detail"),
+        settingsForm = $("#settings-form"),
+        settingsFormSlot = $("#settings-form-slot");
       let uiState = null,
         filter = "all",
-        sort = "status",
+        sort = "stable",
         selectedId = "",
         activeTab = "monitor",
-        pollTimer = null;
-      const patDrafts = new Map(),
+        detailTab = "overview",
+        settingsDirty = false,
+        settingsSaving = false,
+        settingsCashRules = new Map(),
+        expandedProviderId = "",
+        pendingCleanupId = "",
+        pollTimer = null,
+        historyRequestSeq = 0,
+        activeRefreshJob = "",
+        alertFilterSnapshot = null,
+        alertTargetTimer = null;
+      const providerDrafts = new Map(),
+        providerDirty = new Set(),
+        patDrafts = new Map(),
         patClears = new Set();
+      const providerDraft = (id) => providerDrafts.get(id) || {};
+      const setProviderDraft = (id, patch) => {
+        providerDrafts.set(id, { ...providerDraft(id), ...patch });
+        providerDirty.add(id);
+      };
       const statusLabels = {
         ok: "正常",
         warning: "注意",
@@ -1493,7 +1906,7 @@
         account: "账户",
         token: "当前 Key",
         key: "Key",
-        monthlyCredits: "套餐月额度余额",
+        monthlyCredits: "套餐额度",
         purchasedCredits: "已购 Credits 余额",
         freeCredits: "赠送 Credits 余额",
         monthlyCreditsGranted: "套餐月额度",
@@ -1566,6 +1979,7 @@
         available: "可用",
         quota: "额度",
         billing: "计费",
+        cash_balance: "现金余额能力",
         status: "状态",
         message: "说明",
       };
@@ -1824,11 +2238,114 @@
         } catch {}
         if (response.status === 401)
           throw new Error("Management Key 无效或已失效");
-        if (!response.ok) throw new Error(data.error || "请求失败");
+        if (!response.ok) {
+          const error = new Error(data.error || "请求失败");
+          error.status = response.status;
+          error.data = data;
+          throw error;
+        }
         return data;
       };
+      function setStatusError(message) {
+        statusLine.className = "status-text error";
+        statusLine.textContent = message || "操作失败";
+      }
+      function setFilter(nextFilter) {
+        filter = nextFilter;
+        document.querySelectorAll("[data-filter]").forEach((item) => {
+          item.setAttribute(
+            "aria-pressed",
+            String(item.dataset.filter === filter),
+          );
+        });
+      }
+      function restoreAlertFilters() {
+        if (!alertFilterSnapshot) return;
+        $("#search").value = alertFilterSnapshot.search;
+        setFilter(alertFilterSnapshot.filter);
+        alertFilterSnapshot = null;
+        statusLine.className = "status-text";
+        statusLine.textContent = "已恢复告警前的筛选条件";
+        renderMonitor();
+      }
+      function alertTargetSelector(alert) {
+        if (alert?.window_id) {
+          return `[data-alert-target="window:${CSS.escape(alert.window_id)}"]`;
+        }
+        if (alert?.type === "section" && alert.metric_id) {
+          return `[data-alert-target="section:${CSS.escape(alert.metric_id)}"]`;
+        }
+        if (alert?.metric_id) {
+          return `[data-alert-target="quantity:${CSS.escape(alert.metric_id)}"]`;
+        }
+        if (alert?.type === "balance_low") {
+          return '[data-alert-target^="balance:"]';
+        }
+        return "";
+      }
+      function focusAlertTarget(alert) {
+        const selector = alertTargetSelector(alert);
+        const target = selector
+          ? detail.querySelector(selector)
+          : detail.querySelector(".hero-metric") || detail;
+        if (!target) return;
+        target.classList.add("alert-target");
+        target.tabIndex = -1;
+        target.focus({ preventScroll: true });
+        target.scrollIntoView({
+          behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)")
+            .matches
+            ? "auto"
+            : "smooth",
+          block: "center",
+        });
+        if (alertTargetTimer) clearTimeout(alertTargetTimer);
+        alertTargetTimer = setTimeout(() => {
+          target.classList.remove("alert-target");
+          alertTargetTimer = null;
+        }, 2600);
+      }
+      function navigateToAlert(alert) {
+        const target = accounts().find(
+          (item) => item.id === alert.account_id,
+        );
+        if (!target) {
+          setStatusError("该账户已归档或不存在，无法定位告警目标");
+          return;
+        }
+        const hadConflictingFilter =
+          Boolean($("#search").value.trim()) || filter !== "all";
+        if (hadConflictingFilter) {
+          alertFilterSnapshot = { search: $("#search").value, filter };
+          $("#search").value = "";
+          setFilter("all");
+        }
+        selectedId = alert.account_id;
+        detailTab = alert.type === "section" ? "diagnostics" : "overview";
+        setTab("monitor");
+        renderMonitor();
+        if (hadConflictingFilter) {
+          statusLine.className = "status-text";
+          statusLine.textContent = "已清除筛选以显示该账户";
+          const restore = document.createElement("button");
+          restore.className = "status-action";
+          restore.type = "button";
+          restore.textContent = "恢复筛选";
+          restore.onclick = restoreAlertFilters;
+          statusLine.append(restore);
+        } else {
+          statusLine.className = "status-text";
+          statusLine.textContent = "已定位到告警目标";
+        }
+        requestAnimationFrame(() => focusAlertTarget(alert));
+      }
       function setTab(tab) {
         activeTab = tab;
+        if (tab === "monitor-settings") {
+          settingsFormSlot.replaceChildren(settingsForm);
+        } else if (tab === "data-status") {
+          settingsForm.remove();
+        }
         document.querySelectorAll("[data-tab]").forEach((node) => {
           const active = node.dataset.tab === tab;
           node.classList.toggle("active", active);
@@ -1840,33 +2357,34 @@
             node.classList.toggle("hidden", node.dataset.view !== tab),
           );
         if (tab === "providers") renderProviders();
-        if (tab === "settings") renderSettings();
+        if (tab === "monitor-settings" || tab === "data-status")
+          renderSettings();
       }
       function filteredAccounts() {
         const query = $("#search").value.trim().toLowerCase();
-        return accounts()
-          .filter((account) => {
-            const textMatch =
-              !query ||
-              [
-                account.name,
-                account.provider,
-                account.base_url,
-                account.adapter,
-              ].some((value) =>
-                String(value || "")
-                  .toLowerCase()
-                  .includes(query),
-              );
-            const typeMatch =
-              filter === "all" ||
-              (filter === "balance" && account.kind === "balance") ||
-              (filter === "quota" &&
-                ["quota", "period_quota"].includes(account.kind)) ||
-              (filter === "attention" && account.status !== "ok");
-            return textMatch && typeMatch;
-          })
-          .sort((left, right) => {
+        const visible = accounts().filter((account) => {
+          const textMatch =
+            !query ||
+            [
+              account.name,
+              account.provider,
+              account.base_url,
+              account.adapter,
+            ].some((value) =>
+              String(value || "")
+                .toLowerCase()
+                .includes(query),
+            );
+          const typeMatch =
+            filter === "all" ||
+            (filter === "balance" && account.kind === "balance") ||
+            (filter === "quota" &&
+              ["quota", "period_quota"].includes(account.kind)) ||
+            (filter === "attention" && account.status !== "ok");
+          return textMatch && typeMatch;
+        });
+        if (sort === "stable") return visible;
+        return visible.sort((left, right) => {
             const primary =
               sort === "name"
                 ? String(left.name || left.id).localeCompare(
@@ -1921,23 +2439,15 @@
           link.className = "alert-link";
           link.type = "button";
           link.textContent = "查看";
-          link.onclick = () => {
-            selectedId = alert.account_id;
-            setTab("monitor");
-            renderMonitor();
-            document
-              .querySelector(
-                '[data-account-id="' + CSS.escape(alert.account_id) + '"]',
-              )
-              ?.scrollIntoView({ behavior: "smooth", block: "center" });
-          };
+          link.onclick = () => navigateToAlert(alert);
           row.append(dot, main, link);
           list.append(row);
         });
       }
-      function definition(parent, label, value) {
+      function definition(parent, label, value, alertTarget = "") {
         const cell = document.createElement("div");
         cell.className = "definition";
+        if (alertTarget) cell.dataset.alertTarget = alertTarget;
         appendText(cell, "span", "definition-label", label);
         appendText(cell, "span", "definition-value", value);
         parent.append(cell);
@@ -1979,10 +2489,45 @@
         wrap.append(table);
         node.append(wrap);
       }
+      function renderAccountSections(parent, account) {
+        const sectionLabels = {
+          billing: "计费与限制",
+          cash_balance: "现金余额能力",
+        };
+        const entries = Object.entries(account.sections || {}).filter(
+          ([, value]) =>
+            value &&
+            ["unsupported", "missing", "error"].includes(value.status),
+        );
+        if (!entries.length) return;
+        const node = section(parent, "能力与限制", `${entries.length} 项`);
+        entries.forEach(([key, value]) => {
+          const item = document.createElement("div");
+          item.className = "notice";
+          item.dataset.alertTarget = `section:${key}`;
+          appendText(
+            item,
+            "strong",
+            "notice-title",
+            sectionLabels[key] || labelForKey(key),
+          );
+          appendText(item, "span", "", value.message || "当前能力不可用。");
+          if (value.action_url) {
+            const link = document.createElement("a");
+            link.href = value.action_url;
+            link.target = "_blank";
+            link.rel = "noopener noreferrer";
+            link.textContent = value.action_label || "打开控制台";
+            item.append(" ", link);
+          }
+          node.append(item);
+        });
+      }
       function appendCommandCodeCreditMetric(list, quantity, showTotal = true) {
         if (!quantity) return;
         const row = document.createElement("div");
         row.className = "metric-row";
+        row.dataset.alertTarget = `quantity:${quantity.name || "unknown"}`;
         const top = document.createElement("div");
         top.className = "metric-top";
         appendText(
@@ -2031,7 +2576,10 @@
         }
         list.append(row);
       }
-      function renderCommandCodeDetails(parent, account) {
+      function renderCommandCodeDetails(views, account) {
+        const overview = views.overview,
+          usageView = views.usage,
+          diagnostics = views.diagnostics;
         const details = account.details || {};
         const plan =
           details.plan && typeof details.plan === "object" ? details.plan : {};
@@ -2055,7 +2603,7 @@
         const planName = plan.name || plan.id || "Command Code GOAT";
 
         const windowsNode = section(
-          parent,
+          overview,
           "窗口额度",
           account.windows?.length
             ? `${account.windows.length} 个窗口`
@@ -2067,6 +2615,7 @@
           account.windows.forEach((window) => {
             const row = document.createElement("div");
             row.className = "metric-row";
+            row.dataset.alertTarget = `window:${window.name || "unknown"}`;
             const top = document.createElement("div");
             top.className = "metric-top";
             appendText(
@@ -2121,7 +2670,7 @@
           windowsNode.append(note);
         }
 
-        const planNode = section(parent, "套餐与账户额度", planName);
+        const planNode = section(overview, "套餐额度", planName);
         const planGrid = document.createElement("div");
         planGrid.className = "definition-grid";
         definition(planGrid, "套餐", planName);
@@ -2160,11 +2709,13 @@
           ]),
         );
         const availableCredits = quantities.get("availableCredits");
+        const monthlyCredits = quantities.get("monthlyCredits");
         const purchasedCredits = quantities.get("purchasedCredits");
         const freeCredits = quantities.get("freeCredits");
         const extraCredits =
           Number(purchasedCredits?.remaining || 0) +
           Number(freeCredits?.remaining || 0);
+        appendCommandCodeCreditMetric(creditList, monthlyCredits);
         if (extraCredits > 0) {
           appendCommandCodeCreditMetric(creditList, availableCredits);
           appendCommandCodeCreditMetric(creditList, purchasedCredits, false);
@@ -2177,8 +2728,23 @@
         }
         planNode.append(creditList);
 
+        const estimate =
+          details.estimate && typeof details.estimate === "object"
+            ? details.estimate
+            : null;
+        if (estimate) {
+          const estimateNode = section(overview, "估算", "非官方数据");
+          const grid = document.createElement("div");
+          grid.className = "definition-grid";
+          ["availableTotal", "used", "basis"].forEach((key) => {
+            if (estimate[key] !== undefined)
+              definition(grid, labelForKey(key), formatValue(key, estimate[key]));
+          });
+          estimateNode.append(grid);
+        }
+
         const usageNode = section(
-          parent,
+          usageView,
           "本周期用量",
           usage ? "请求与用量统计" : "暂无数据",
         );
@@ -2222,10 +2788,10 @@
             "resetAt",
             ...new Set(limits.flatMap((item) => Object.keys(item || {}))),
           ].filter((key, index, list) => list.indexOf(key) === index);
-          tableSection(parent, "组织限制", limits, keys);
+          tableSection(diagnostics, "组织限制", limits, keys);
         } else {
           const limitsNode = section(
-            parent,
+            diagnostics,
             "组织限制",
             isOrganization ? "暂无数据" : "不适用",
           );
@@ -2238,7 +2804,7 @@
         }
 
         const accountNode = section(
-          parent,
+          diagnostics,
           "账户与订阅",
           isOrganization ? "组织账户" : "个人账户",
         );
@@ -2276,6 +2842,71 @@
           accountNode.append(note);
         }
 
+      }
+      function renderAccountDiagnostics(parent, account) {
+        const details =
+          account.details && typeof account.details === "object"
+            ? account.details
+            : {};
+        const sourceNode = section(parent, "查询来源");
+        const sourceGrid = document.createElement("div");
+        sourceGrid.className = "definition-grid";
+        definition(sourceGrid, "供应商", displayProvider(account.provider));
+        definition(sourceGrid, "查询方式", displayAdapter(account.adapter));
+        definition(sourceGrid, "接口地址", account.base_url || "未提供");
+        definition(sourceGrid, "最近成功", formatTime(account.last_success_at));
+        definition(
+          sourceGrid,
+          "请求耗时",
+          account.latency_ms ? `${account.latency_ms} ms` : "无记录",
+        );
+        definition(
+          sourceGrid,
+          "数据状态",
+          account.stale ? "过期快照" : "实时快照",
+        );
+        sourceNode.append(sourceGrid);
+
+        const accountDetails =
+          details.account && typeof details.account === "object"
+            ? details.account
+            : null;
+        if (accountDetails && Object.keys(accountDetails).length) {
+          const accountNode = section(parent, "账户与组织");
+          const grid = document.createElement("div");
+          grid.className = "definition-grid";
+          const labels = {
+            userName: "用户：",
+            userNameOrEmail: "用户：",
+            scope: "账户范围：",
+            orgLogin: "组织：",
+            orgId: "组织 ID：",
+          };
+          Object.entries(accountDetails)
+            .filter(([, value]) => value !== undefined && value !== null)
+            .forEach(([key, value]) =>
+              definition(
+                grid,
+                labels[key] || `${labelForKey(key)}：`,
+                formatValue(key, value),
+              ),
+            );
+          accountNode.append(grid);
+        }
+
+        if (Object.keys(details).length) {
+          const rawNode = section(parent, "原始字段", "只读诊断");
+          const raw = document.createElement("pre");
+          raw.className = "raw-data";
+          try {
+            raw.textContent = JSON.stringify(details, null, 2);
+          } catch {
+            raw.textContent = "原始字段无法序列化";
+          }
+          rawNode.append(raw);
+        }
+
+        renderAccountSections(parent, account);
         if (account.warnings?.length) {
           const warningNode = section(
             parent,
@@ -2297,13 +2928,19 @@
           errorNode.append(note);
         }
       }
-      function renderDetails(parent, account) {
+      function renderDetails(views, account) {
+        const overview = views.overview,
+          billing = views.billing,
+          usageView = views.usage,
+          diagnostics = views.diagnostics;
         if (isCommandCodeAccount(account)) {
-          renderCommandCodeDetails(parent, account);
+          renderCommandCodeDetails(views, account);
+          renderAccountSections(overview, account);
+          renderAccountDiagnostics(diagnostics, account);
           return;
         }
         const details = account.details || {};
-        const current = section(parent, "当前情况");
+        const current = section(overview, "当前情况");
         const grid = document.createElement("div");
         grid.className = "definition-grid";
         definition(grid, "计费类型", kindLabels[account.kind] || "未分类");
@@ -2328,7 +2965,7 @@
           );
         current.append(grid);
         if (account.kind === "balance" && account.balances?.length) {
-          const node = section(parent, "余额", "货币余额");
+          const node = section(overview, "余额", "货币余额");
           const balanceGrid = document.createElement("div");
           balanceGrid.className = "definition-grid";
           account.balances.forEach((item) =>
@@ -2336,13 +2973,14 @@
               balanceGrid,
               labelForKey(item.balance_type || "balance"),
               `${item.amount} ${item.currency}`,
+              `balance:${item.balance_type || "balance"}`,
             ),
           );
           node.append(balanceGrid);
         }
         if (account.quantities?.length) {
           const node = section(
-            parent,
+            overview,
             "配额明细",
             `${account.quantities.length} 项`,
           );
@@ -2353,6 +2991,7 @@
             .forEach((quantity) => {
               const row = document.createElement("div");
               row.className = "metric-row";
+              row.dataset.alertTarget = `quantity:${quantity.name || "unknown"}`;
               const top = document.createElement("div");
               top.className = "metric-top";
               appendText(
@@ -2410,7 +3049,7 @@
         }
         if (account.windows?.length) {
           const node = section(
-            parent,
+            overview,
             "周期额度",
             `${account.windows.length} 个窗口`,
           );
@@ -2419,6 +3058,7 @@
           account.windows.forEach((window) => {
             const row = document.createElement("div");
             row.className = "metric-row";
+            row.dataset.alertTarget = `window:${window.name || "unknown"}`;
             const top = document.createElement("div");
             top.className = "metric-top";
             appendText(
@@ -2462,7 +3102,7 @@
           node.append(list);
         }
         if (details.quota && typeof details.quota === "object") {
-          const node = section(parent, "总额度");
+          const node = section(overview, "总额度");
           const grid = document.createElement("div");
           grid.className = "definition-grid";
           ["limit", "used", "remaining", "unit"].forEach((key) => {
@@ -2476,7 +3116,7 @@
           node.append(grid);
         }
         if (Array.isArray(details.rate_limits))
-          tableSection(parent, "速率限制", details.rate_limits, [
+          tableSection(billing, "速率限制", details.rate_limits, [
             "window",
             "limit",
             "used",
@@ -2485,7 +3125,7 @@
             "reset_at",
           ]);
         if (details.subscription && typeof details.subscription === "object") {
-          const node = section(parent, "订阅额度");
+          const node = section(billing, "订阅额度");
           const grid = document.createElement("div");
           grid.className = "definition-grid";
           Object.entries(details.subscription).forEach(([key, value]) =>
@@ -2494,7 +3134,7 @@
           node.append(grid);
         }
         if (details.usage && typeof details.usage === "object") {
-          const node = section(parent, "Token 用量与费用");
+          const node = section(usageView, "Token 用量与费用");
           const grid = document.createElement("div");
           grid.className = "definition-grid";
           Object.entries(details.usage).forEach(([key, value]) =>
@@ -2502,7 +3142,7 @@
           );
           node.append(grid);
         }
-        tableSection(parent, "每日用量", details.daily_usage, [
+        tableSection(usageView, "每日用量", details.daily_usage, [
           "date",
           "requests",
           "input_tokens",
@@ -2514,7 +3154,7 @@
           "cost",
           "actual_cost",
         ]);
-        tableSection(parent, "模型统计", details.model_stats, [
+        tableSection(usageView, "模型统计", details.model_stats, [
           "model",
           "requests",
           "input_tokens",
@@ -2524,7 +3164,7 @@
           "actual_cost",
         ]);
         if (details.billing && typeof details.billing === "object") {
-          const node = section(parent, "计费倍率");
+          const node = section(billing, "计费倍率");
           const grid = document.createElement("div");
           grid.className = "definition-grid";
           Object.entries(details.billing).forEach(([key, value]) =>
@@ -2532,22 +3172,8 @@
           );
           node.append(grid);
         }
-        if (account.warnings?.length) {
-          account.warnings.forEach((warning) => {
-            const node = section(parent, "说明");
-            const note = document.createElement("div");
-            note.className = "notice";
-            note.textContent = warning;
-            node.append(note);
-          });
-        }
-        if (account.error?.message) {
-          const node = section(parent, "错误");
-          const note = document.createElement("div");
-          note.className = "error-box";
-          note.textContent = account.error.message;
-          node.append(note);
-        }
+        renderAccountSections(overview, account);
+        renderAccountDiagnostics(diagnostics, account);
       }
       function renderDetail(account) {
         detail.textContent = "";
@@ -2599,6 +3225,7 @@
         identity.append(status);
         const hero = document.createElement("div");
         hero.className = "hero-metric";
+        hero.dataset.alertTarget = "hero";
         appendText(hero, "span", "hero-label", metric.label);
         appendText(hero, "strong", "hero-value", metric.value);
         if (metric.percent !== undefined)
@@ -2612,48 +3239,66 @@
         detail.append(head);
         const tabs = document.createElement("div");
         tabs.className = "detail-tabs";
-        const currentTab = document.createElement("button");
-        currentTab.className = "detail-tab active";
-        currentTab.type = "button";
-        currentTab.textContent = "当前情况";
-        const sourceTab = document.createElement("button");
-        sourceTab.className = "detail-tab";
-        sourceTab.type = "button";
-        sourceTab.textContent = "来源与诊断";
-        tabs.append(currentTab, sourceTab);
+        tabs.setAttribute("role", "tablist");
+        tabs.setAttribute("aria-label", "账户详情视图");
+        const overview = document.createElement("div");
+        const billing = document.createElement("div");
+        const usageView = document.createElement("div");
+        const historyView = document.createElement("div");
+        const diagnostics = document.createElement("div");
+        const views = {
+          overview,
+          billing,
+          usage: usageView,
+          history: historyView,
+          diagnostics,
+        };
+        const labels = {
+          billing: "计费与限制",
+          usage: "用量统计",
+          history: "历史",
+          diagnostics: "诊断",
+        };
+        if (!views[detailTab]) detailTab = "overview";
+        Object.entries(labels).forEach(([key, label]) => {
+          const button = document.createElement("button");
+          button.className = `detail-tab${key === detailTab ? " active" : ""}`;
+          button.type = "button";
+          button.textContent = label;
+          button.setAttribute("role", "tab");
+          button.setAttribute("aria-selected", String(key === detailTab));
+          button.onclick = () => {
+            detailTab = key;
+            if (key !== "history") historyRequestSeq += 1;
+            renderDetail(account);
+          };
+          tabs.append(button);
+        });
         detail.append(tabs);
-        const current = document.createElement("div");
-        renderDetails(current, account);
-        detail.append(current);
-        const source = document.createElement("div");
-        source.className = "hidden";
-        const sourceNode = section(source, "查询来源");
-        const grid = document.createElement("div");
-        grid.className = "definition-grid";
-        definition(grid, "供应商", displayProvider(account.provider));
-        definition(grid, "查询方式", displayAdapter(account.adapter));
-        definition(grid, "接口地址", account.base_url || "未提供");
-        definition(grid, "最近成功", formatTime(account.last_success_at));
-        definition(
-          grid,
-          "请求耗时",
-          account.latency_ms ? `${account.latency_ms} ms` : "无记录",
-        );
-        definition(grid, "数据状态", account.stale ? "过期快照" : "实时快照");
-        sourceNode.append(grid);
-        detail.append(source);
-        currentTab.onclick = () => {
-          currentTab.classList.add("active");
-          sourceTab.classList.remove("active");
-          current.classList.remove("hidden");
-          source.classList.add("hidden");
-        };
-        sourceTab.onclick = () => {
-          sourceTab.classList.add("active");
-          currentTab.classList.remove("active");
-          source.classList.remove("hidden");
-          current.classList.add("hidden");
-        };
+        renderDetails(views, account);
+        let historyBody = null;
+        let historyTitle = null;
+        let historyPanel = null;
+        if (detailTab === "history") {
+          historyPanel = section(historyView, "历史", account.id);
+          historyTitle = document.createElement("div");
+          historyTitle.className = "history-inline-title";
+          historyTitle.textContent = `最近查询 · ${account.name || account.id} · ${account.id}`;
+          historyBody = document.createElement("div");
+          historyBody.className = "history-inline-body";
+          historyBody.textContent = "正在加载查询历史…";
+          historyPanel.append(historyTitle, historyBody);
+        }
+        const activeView = views[detailTab];
+        activeView.className = "detail-view";
+        activeView.setAttribute("role", "tabpanel");
+        detail.append(activeView);
+        if (detailTab === "history") {
+          historyPanel.tabIndex = -1;
+          historyPanel.focus({ preventScroll: true });
+          historyPanel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+          loadDetailHistory(account, historyTitle, historyBody);
+        }
       }
       function renderMonitor() {
         const list = filteredAccounts();
@@ -2715,7 +3360,7 @@
           refresh.textContent = "↻";
           refresh.onclick = (event) => {
             event.stopPropagation();
-            refreshNow();
+            refreshNow(account.id);
           };
           item.append(button, refresh);
           railList.append(item);
@@ -2735,33 +3380,51 @@
           ? `已同步 CPA ${providers.length} 项，已勾选 ${providers.filter((item) => item.monitored).length} 项`
           : "尚未读取 CPA 配置";
         providers.forEach((provider) => {
+          const draft = providerDraft(provider.id);
           const row = document.createElement("tr");
+          row.classList.toggle("expanded", expandedProviderId === provider.id);
           const check = document.createElement("input");
           check.type = "checkbox";
-          check.checked = Boolean(provider.monitored);
+          check.checked = draft.monitored ?? Boolean(provider.monitored);
           check.dataset.providerId = provider.id;
           check.setAttribute(
             "aria-label",
             `监控 ${provider.name || provider.id}`,
           );
+          check.addEventListener("change", () =>
+            setProviderDraft(provider.id, { monitored: check.checked }),
+          );
           const checkCell = document.createElement("td");
-          checkCell.append(check);
+          checkCell.className = "provider-monitor-cell";
+          const monitorLabel = document.createElement("span");
+          monitorLabel.className = "provider-monitor-label";
+          monitorLabel.textContent = "监控";
+          checkCell.append(check, monitorLabel);
           row.append(checkCell);
           const customCell = document.createElement("td");
+          customCell.className = "provider-advanced provider-custom-cell";
+          customCell.dataset.label = "备注名称";
           const customInput = document.createElement("input");
           customInput.type = "text";
           customInput.maxLength = 80;
           customInput.placeholder =
             provider.default_name || provider.name || provider.id;
-          customInput.value = provider.custom_name || "";
+          customInput.value =
+            draft.custom_name ?? provider.custom_name ?? "";
           customInput.dataset.nameId = provider.id;
           customInput.setAttribute(
             "aria-label",
             `备注名称 ${provider.default_name || provider.name || provider.id}`,
           );
+          customInput.addEventListener("input", () =>
+            setProviderDraft(provider.id, {
+              custom_name: customInput.value,
+            }),
+          );
           customCell.append(customInput);
           row.append(customCell);
           const nameCell = document.createElement("td");
+          nameCell.className = "provider-name-cell";
           appendText(
             nameCell,
             "div",
@@ -2774,8 +3437,38 @@
             "config-meta",
             `${displayProvider(provider.provider)} · ${provider.key_hint || "Key 已隐藏"}`,
           );
+          const expand = document.createElement("button");
+          expand.className = "mini-button provider-expand-button";
+          expand.type = "button";
+          expand.textContent =
+            expandedProviderId === provider.id ? "收起编辑" : "编辑";
+          expand.setAttribute(
+            "aria-label",
+            `${expandedProviderId === provider.id ? "收起" : "编辑"} ${provider.name || provider.id}`,
+          );
+          expand.setAttribute(
+            "aria-expanded",
+            String(expandedProviderId === provider.id),
+          );
+          expand.onclick = () => {
+            expandedProviderId =
+              expandedProviderId === provider.id ? "" : provider.id;
+            renderProviders();
+            if (expandedProviderId === provider.id) {
+              requestAnimationFrame(() =>
+                document
+                  .querySelector(
+                    `[data-name-id="${CSS.escape(provider.id)}"]`,
+                  )
+                  ?.focus(),
+              );
+            }
+          };
+          nameCell.append(expand);
           row.append(nameCell);
           const urlCell = document.createElement("td");
+          urlCell.className = "provider-advanced provider-url-cell";
+          urlCell.dataset.label = "Base URL";
           appendText(
             urlCell,
             "span",
@@ -2790,8 +3483,14 @@
           );
           row.append(urlCell);
           const adapterCell = document.createElement("td");
+          adapterCell.className = "provider-advanced provider-adapter-cell";
+          adapterCell.dataset.label = "查询方式";
           const select = document.createElement("select");
           select.dataset.adapterId = provider.id;
+          select.setAttribute(
+            "aria-label",
+            `查询方式 ${provider.name || provider.id}`,
+          );
           [
             ["auto", "自动识别"],
             ["newapi-usage", "NewAPI"],
@@ -2809,12 +3508,20 @@
             option.textContent = label;
             select.append(option);
           });
-          select.value = provider.adapter_override || "auto";
+          select.value = draft.adapter ?? provider.adapter_override ?? "auto";
+          select.addEventListener("change", () => {
+            setProviderDraft(provider.id, { adapter: select.value });
+            renderProviders();
+          });
           adapterCell.append(select);
           row.append(adapterCell);
           const patCell = document.createElement("td");
+          patCell.className = "provider-advanced provider-pat-cell";
+          patCell.dataset.label = "NewAPI 管理 PAT";
+          const effectiveAdapter =
+            draft.adapter ?? provider.adapter_override ?? provider.adapter;
           const needsPat =
-            ["relay-usage", "newapi-usage"].includes(provider.adapter) ||
+            ["relay-usage", "newapi-usage"].includes(effectiveAdapter) ||
             /newapi|coderelay/i.test(
               `${provider.provider} ${provider.base_url}`,
             );
@@ -2829,6 +3536,14 @@
               : "手动输入 NewAPI 管理 PAT";
             input.dataset.patId = provider.id;
             input.value = patDrafts.get(provider.id) || "";
+            input.setAttribute(
+              "aria-label",
+              `NewAPI 管理 PAT ${provider.name || provider.id}`,
+            );
+            input.addEventListener("input", () => {
+              patDrafts.set(provider.id, input.value);
+              providerDirty.add(provider.id);
+            });
             editor.append(input);
             const clear = document.createElement("button");
             clear.className = "mini-button danger";
@@ -2837,6 +3552,7 @@
             clear.onclick = () => {
               patDrafts.delete(provider.id);
               patClears.add(provider.id);
+              providerDirty.add(provider.id);
               input.value = "";
               input.placeholder = "保存后清除";
             };
@@ -2846,19 +3562,210 @@
             appendText(patCell, "span", "config-meta", "仅 NewAPI 需要");
           }
           row.append(patCell);
+          const thresholdCell = document.createElement("td");
+          thresholdCell.className =
+            "config-account-threshold provider-advanced provider-threshold-cell";
+          thresholdCell.dataset.label = "账户阈值覆盖";
+          const configuredThreshold = uiState?.config?.cash_by_account?.[
+            provider.id
+          ] || { warning: "", critical: "" };
+          const thresholdDraft = draft.cash_threshold || configuredThreshold;
+          const thresholdEditor = document.createElement("div");
+          thresholdEditor.className = "account-threshold-editor";
+          const warningInput = document.createElement("input");
+          warningInput.type = "number";
+          warningInput.min = "0";
+          warningInput.step = "any";
+          warningInput.inputMode = "decimal";
+          warningInput.dataset.accountWarningId = provider.id;
+          warningInput.value = thresholdDraft.warning || "";
+          warningInput.placeholder = "注意金额";
+          warningInput.setAttribute(
+            "aria-label",
+            `${provider.name || provider.id} 账户现金注意金额`,
+          );
+          const criticalInput = document.createElement("input");
+          criticalInput.type = "number";
+          criticalInput.min = "0";
+          criticalInput.step = "any";
+          criticalInput.inputMode = "decimal";
+          criticalInput.dataset.accountCriticalId = provider.id;
+          criticalInput.value = thresholdDraft.critical || "";
+          criticalInput.placeholder = "严重金额";
+          criticalInput.setAttribute(
+            "aria-label",
+            `${provider.name || provider.id} 账户现金严重金额`,
+          );
+          const updateThresholdDraft = () => {
+            setProviderDraft(provider.id, {
+              cash_threshold: {
+                warning: warningInput.value,
+                critical: criticalInput.value,
+              },
+            });
+            providerDirty.add(provider.id);
+          };
+          warningInput.addEventListener("input", updateThresholdDraft);
+          criticalInput.addEventListener("input", updateThresholdDraft);
+          thresholdEditor.append(warningInput, criticalInput);
+          const clearThreshold = document.createElement("button");
+          clearThreshold.className = "mini-button danger";
+          clearThreshold.type = "button";
+          clearThreshold.textContent = "清除覆盖";
+          clearThreshold.setAttribute(
+            "aria-label",
+            `清除 ${provider.name || provider.id} 账户现金阈值覆盖`,
+          );
+          clearThreshold.addEventListener("click", () => {
+            setProviderDraft(provider.id, {
+              cash_threshold: { warning: "", critical: "" },
+            });
+            providerDirty.add(provider.id);
+            renderProviders();
+          });
+          thresholdEditor.append(clearThreshold);
+          thresholdCell.append(thresholdEditor);
+          thresholdCell.setAttribute(
+            "title",
+            "账户覆盖优先于“监控设置”中的币种默认值",
+          );
+          row.append(thresholdCell);
           const actionCell = document.createElement("td");
+          actionCell.className = "provider-advanced provider-action-cell";
+          actionCell.dataset.label = "操作";
           const clearSnapshot = document.createElement("button");
           clearSnapshot.className = "mini-button danger";
           clearSnapshot.type = "button";
           clearSnapshot.textContent = "清除记录";
-          clearSnapshot.onclick = () => clearProviderSnapshot(provider.id);
+          clearSnapshot.setAttribute(
+            "aria-label",
+            `清除 ${provider.name || provider.id} 记录`,
+          );
+          clearSnapshot.onclick = () => openCleanupConfirmation(provider);
           actionCell.append(clearSnapshot);
           row.append(actionCell);
           body.append(row);
         });
       }
+      function openCleanupConfirmation(provider) {
+        pendingCleanupId = provider.id;
+        $("#cleanup-confirmation-message").textContent =
+          `将清除“${provider.name || provider.id}”（${provider.id}）的已保存快照和查询历史。CPAMP 中的供应商、API Key 与 CPA 原始配置不会被删除。`;
+        const confirmation = $("#cleanup-confirmation");
+        confirmation.classList.remove("hidden");
+        $("#cleanup-confirm-cancel").focus();
+      }
+      function closeCleanupConfirmation() {
+        pendingCleanupId = "";
+        $("#cleanup-confirmation").classList.add("hidden");
+      }
+      function settingsCashRulesFromState() {
+        const rules = new Map();
+        const configured = uiState?.config?.cash_by_currency || {};
+        Object.entries(configured).forEach(([currency, rule]) => {
+          const key = String(currency || "").trim().toUpperCase();
+          if (!key) return;
+          rules.set(key, {
+            warning: String(rule?.warning || ""),
+            critical: String(rule?.critical || ""),
+          });
+        });
+        ["CNY", "USD"].forEach((currency) => {
+          if (!rules.has(currency)) {
+            rules.set(currency, { warning: "", critical: "" });
+          }
+        });
+        accounts().forEach((account) => {
+          (account.balances || []).forEach((balance) => {
+            const currency = String(balance.currency || "")
+              .trim()
+              .toUpperCase();
+            if (currency && !rules.has(currency)) {
+              rules.set(currency, { warning: "", critical: "" });
+            }
+          });
+        });
+        return rules;
+      }
+      function renderCashThresholdRows() {
+        const container = settingsForm.querySelector(
+          "#cash-currency-thresholds",
+        );
+        container.textContent = "";
+        [...settingsCashRules.entries()]
+          .sort(([left], [right]) => left.localeCompare(right))
+          .forEach(([currency, rule], index) => {
+            const row = document.createElement("div");
+            row.className = "cash-threshold-row";
+            const currencyLabel = document.createElement("strong");
+            currencyLabel.className = "cash-threshold-currency";
+            currencyLabel.textContent = currency;
+            row.append(currencyLabel);
+
+            const warningField = document.createElement("div");
+            warningField.className = "field";
+            const warningID = `cash-warning-${index}`;
+            const warningLabel = document.createElement("label");
+            warningLabel.htmlFor = warningID;
+            warningLabel.textContent = `${currency} 注意金额`;
+            const warningInput = document.createElement("input");
+            warningInput.id = warningID;
+            warningInput.type = "number";
+            warningInput.min = "0";
+            warningInput.step = "any";
+            warningInput.inputMode = "decimal";
+            warningInput.value = rule.warning;
+            warningInput.addEventListener("input", () => {
+              rule.warning = warningInput.value;
+              settingsCashRules.set(currency, rule);
+            });
+            warningField.append(warningLabel, warningInput);
+            row.append(warningField);
+
+            const criticalField = document.createElement("div");
+            criticalField.className = "field";
+            const criticalID = `cash-critical-${index}`;
+            const criticalLabel = document.createElement("label");
+            criticalLabel.htmlFor = criticalID;
+            criticalLabel.textContent = `${currency} 严重金额`;
+            const criticalInput = document.createElement("input");
+            criticalInput.id = criticalID;
+            criticalInput.type = "number";
+            criticalInput.min = "0";
+            criticalInput.step = "any";
+            criticalInput.inputMode = "decimal";
+            criticalInput.value = rule.critical;
+            criticalInput.addEventListener("input", () => {
+              rule.critical = criticalInput.value;
+              settingsCashRules.set(currency, rule);
+            });
+            criticalField.append(criticalLabel, criticalInput);
+            row.append(criticalField);
+
+            const remove = document.createElement("button");
+            remove.className = "mini-button danger";
+            remove.type = "button";
+            remove.textContent = "移除";
+            remove.setAttribute("aria-label", `移除 ${currency} 现金阈值`);
+            remove.addEventListener("click", () => {
+              settingsCashRules.delete(currency);
+              settingsDirty = true;
+              renderCashThresholdRows();
+            });
+            row.append(remove);
+            container.append(row);
+          });
+      }
       function renderSettings() {
         const config = uiState?.config || {};
+        if (!settingsDirty && !settingsSaving) {
+          settingsForm.querySelector("#settings-warning-percent").value =
+            config.warning_percent ?? 20;
+          settingsForm.querySelector("#settings-critical-percent").value =
+            config.critical_percent ?? 10;
+          settingsCashRules = settingsCashRulesFromState();
+          renderCashThresholdRows();
+        }
         $("#setting-ttl").textContent = config.cache_ttl_seconds
           ? `${config.cache_ttl_seconds} 秒`
           : "-";
@@ -2872,6 +3779,89 @@
         $("#setting-refreshing").textContent = uiState?.refreshing
           ? "后台刷新中"
           : "空闲";
+        const syncInterval = Number(config.sync_interval_seconds || 0);
+        $("#data-sync-mode").textContent = syncInterval
+          ? `后台轮询 · 每 ${syncInterval} 秒同步 CPA 目录`
+          : "后台轮询";
+        const directorySync = uiState?.directory_sync || {};
+        $("#data-directory-sync").textContent = directorySync.error
+          ? `同步失败：${directorySync.error}`
+          : directorySync.last_success_at
+            ? `最近成功 ${formatTime(directorySync.last_success_at)}`
+            : "等待同步";
+      }
+      async function saveSettings(event) {
+        event.preventDefault();
+        if (settingsSaving) return;
+        const warning = Number(
+          settingsForm.querySelector("#settings-warning-percent").value,
+        );
+        const critical = Number(
+          settingsForm.querySelector("#settings-critical-percent").value,
+        );
+        const feedback = settingsForm.querySelector("#settings-feedback");
+        if (
+          !Number.isFinite(warning) ||
+          !Number.isFinite(critical) ||
+          warning <= 0 ||
+          warning > 100 ||
+          critical <= 0 ||
+          critical >= warning
+        ) {
+          feedback.className = "settings-feedback error";
+          feedback.textContent = "请填写 0 到 100，且严重阈值小于注意阈值";
+          return;
+        }
+        const cashByCurrency = {};
+        for (const [currency, rule] of settingsCashRules) {
+          const warningAmount = String(rule.warning || "").trim();
+          const criticalAmount = String(rule.critical || "").trim();
+          if (!warningAmount && !criticalAmount) continue;
+          if (!warningAmount || !criticalAmount) {
+            feedback.className = "settings-feedback error";
+            feedback.textContent = `${currency} 的注意金额和严重金额需要同时填写`;
+            return;
+          }
+          cashByCurrency[currency] = {
+            warning: warningAmount,
+            critical: criticalAmount,
+          };
+        }
+        settingsSaving = true;
+        const button = settingsForm.querySelector("#save-settings");
+        button.disabled = true;
+        feedback.className = "settings-feedback";
+        feedback.textContent = "正在保存…";
+        try {
+          const saved = await api("/v0/management/upstream-monitor/config", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              base_revision: uiState?.revision,
+              warning_percent: warning,
+              critical_percent: critical,
+              cash_by_currency: cashByCurrency,
+            }),
+          });
+          uiState = saved;
+          settingsDirty = false;
+          updateSummary();
+          feedback.className = "settings-feedback";
+          feedback.textContent = "监控设置已保存";
+          statusLine.className = "status-text";
+          statusLine.textContent = "监控设置已保存，告警已重新评估";
+        } catch (error) {
+          feedback.className = "settings-feedback error";
+          feedback.textContent =
+            error.status === 409
+              ? "设置已被其他页面修改，请重新加载后再保存"
+              : error.message || "保存失败";
+          statusLine.className = "status-text error";
+          statusLine.textContent = feedback.textContent;
+        } finally {
+          settingsSaving = false;
+          button.disabled = false;
+        }
       }
       function updateSummary() {
         const summary = uiState?.report?.summary || {};
@@ -2922,23 +3912,94 @@
           $("#page-state-dot").className = "page-state-dot error";
         }
       }
-      async function refreshNow() {
+      async function refreshNow(accountId = "") {
+        if (activeRefreshJob) {
+          statusLine.className = "status-text";
+          statusLine.textContent = "已有刷新任务正在进行，请等待完成";
+          return;
+        }
         try {
           statusLine.className = "status-text";
-          statusLine.textContent = "正在刷新选中账户…";
-          await api("/v0/management/upstream-monitor/refresh", {
+          statusLine.textContent = accountId
+            ? "正在刷新当前账户…"
+            : "正在刷新全部账户…";
+          const payload = accountId
+            ? { account_ids: [accountId], force: true, async: true }
+            : { scope: "all", force: true, async: true };
+          const job = await api("/v0/management/upstream-monitor/refresh", {
             method: "POST",
-            body: "{}",
+            body: JSON.stringify(payload),
             headers: { "Content-Type": "application/json" },
           });
-          await loadState();
+          if (!job.job_id) {
+            await loadState();
+            return;
+          }
+          activeRefreshJob = job.job_id;
+          await pollRefreshJob(job.job_id);
         } catch (error) {
+          activeRefreshJob = "";
           statusLine.className = "status-text error";
           statusLine.textContent = error.message || "刷新失败";
         }
       }
+      async function pollRefreshJob(jobId) {
+        while (activeRefreshJob === jobId) {
+          const job = await api(
+            `/v0/management/upstream-monitor/refresh?job_id=${encodeURIComponent(jobId)}`,
+          );
+          if (job.status === "completed" || job.status === "failed") {
+            activeRefreshJob = "";
+            await loadState();
+            statusLine.className =
+              job.status === "completed"
+                ? "status-text"
+                : "status-text error";
+            statusLine.textContent = refreshJobMessage(job);
+            return;
+          }
+          statusLine.className = "status-text";
+          statusLine.textContent = `刷新进行中：${job.completed || 0}/${job.total || 0}，失败 ${job.failed || 0}`;
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+      }
+      function refreshJobMessage(job) {
+        const prefix = job.status === "failed" ? "刷新失败" : "刷新完成";
+        const summary = `${job.completed || 0} 个成功，${job.failed || 0} 个失败，${job.skipped || 0} 个跳过`;
+        return job.error ? `${prefix}：${summary}；${job.error}` : `${prefix}：${summary}`;
+      }
       async function saveProviders() {
         const providers = uiState?.providers || [];
+        const thresholdFields = providers
+          .map((provider) => {
+            const nameInput = document.querySelector(
+              `[data-name-id="${CSS.escape(provider.id)}"]`,
+            );
+            const warningInput = document.querySelector(
+              `[data-account-warning-id="${CSS.escape(provider.id)}"]`,
+            );
+            const criticalInput = document.querySelector(
+              `[data-account-critical-id="${CSS.escape(provider.id)}"]`,
+            );
+            const draft = providerDraft(provider.id);
+            const warning = String(
+              draft.cash_threshold?.warning ?? warningInput?.value ?? "",
+            ).trim();
+            const critical = String(
+              draft.cash_threshold?.critical ?? criticalInput?.value ?? "",
+            ).trim();
+            return { provider, nameInput, warning, critical };
+          });
+        const invalidThreshold = thresholdFields.find(
+          ({ warning, critical }) =>
+            Boolean(warning) !== Boolean(critical),
+        );
+        if (invalidThreshold) {
+          setStatusError(
+            `${invalidThreshold.provider.name || invalidThreshold.provider.id} 的账户现金注意金额和严重金额需要同时填写`,
+          );
+          return;
+        }
         const payload = providers.map((provider) => {
           const checked = document.querySelector(
             `[data-provider-id="${CSS.escape(provider.id)}"]`,
@@ -2952,33 +4013,63 @@
           const nameInput = document.querySelector(
             `[data-name-id="${CSS.escape(provider.id)}"]`,
           );
+          const threshold = thresholdFields.find(
+            (item) => item.provider.id === provider.id,
+          );
           const item = {
             id: provider.id,
             monitored: Boolean(checked?.checked),
             adapter: select?.value || "auto",
             custom_name: nameInput?.value.trim() || "",
+            pat_action: "keep",
           };
-          if (input?.value.trim()) item.management_pat = input.value.trim();
-          if (patClears.has(provider.id)) item.clear_management_pat = true;
+          if (input?.value.trim()) {
+            item.pat_action = "replace";
+            item.management_pat = input.value.trim();
+          } else if (patClears.has(provider.id)) {
+            item.pat_action = "clear";
+          }
+          if (threshold.warning) {
+            item.cash_threshold = {
+              warning: threshold.warning,
+              critical: threshold.critical,
+            };
+          } else if (
+            uiState?.config?.cash_by_account?.[provider.id] &&
+            providerDirty.has(provider.id)
+          ) {
+            item.clear_cash_threshold = true;
+          }
           return item;
         });
         try {
-          await api("/v0/management/upstream-monitor/providers", {
+          const saved = await api("/v0/management/upstream-monitor/providers", {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ providers: payload }),
+            body: JSON.stringify({
+              base_revision: uiState?.revision,
+              providers: payload,
+            }),
           });
+          providerDrafts.clear();
+          providerDirty.clear();
           patDrafts.clear();
           patClears.clear();
+          uiState = saved;
+          $("#version").textContent = `v${saved.version || "0.2.0"}`;
+          updateSummary();
           statusLine.className = "status-text";
           statusLine.textContent = "供应商配置已保存，已同步 CPA 当前配置";
-          await loadState();
         } catch (error) {
-          statusLine.className = "status-text error";
-          statusLine.textContent = error.message || "保存失败";
+          setStatusError(
+            error.status === 409
+              ? "配置已被其他页面修改，请重新加载后再保存"
+              : error.message || "保存失败",
+          );
         }
       }
       async function clearProviderSnapshot(id) {
+        if (!id) return;
         try {
           await api("/v0/management/upstream-monitor/cleanup", {
             method: "POST",
@@ -2988,17 +4079,15 @@
           statusLine.className = "status-text";
           statusLine.textContent = "监控记录已清除";
           $("#history-panel").classList.add("hidden");
+          closeCleanupConfirmation();
           await loadState();
         } catch (error) {
           statusLine.className = "status-text error";
           statusLine.textContent = error.message || "清除失败";
         }
       }
-      function renderHistory(items) {
-        const panel = $("#history-panel"),
-          body = $("#history-body");
+      function renderHistoryInto(body, items) {
         body.textContent = "";
-        panel.classList.remove("hidden");
         if (!items.length) {
           appendText(body, "div", "history-empty", "暂无查询历史");
           return;
@@ -3028,20 +4117,77 @@
         wrap.append(table);
         body.append(wrap);
       }
+      function renderHistory(items) {
+        const panel = $("#history-panel"),
+          body = $("#history-body");
+        panel.classList.remove("hidden");
+        renderHistoryInto(body, items);
+      }
+      async function loadDetailHistory(account, title, body) {
+        if (!account || !body) return;
+        const accountId = account.id;
+        const requestSeq = ++historyRequestSeq;
+        title.textContent = `最近查询 · ${account.name || accountId} · ${accountId}`;
+        body.textContent = "正在加载查询历史…";
+        try {
+          const data = await api(
+            `/v0/management/upstream-monitor/history?account_id=${encodeURIComponent(accountId)}&limit=50`,
+          );
+          if (
+            requestSeq !== historyRequestSeq ||
+            detailTab !== "history" ||
+            selectedId !== accountId ||
+            !body.isConnected
+          ) {
+            return;
+          }
+          renderHistoryInto(body, data.history || []);
+        } catch (error) {
+          if (
+            requestSeq !== historyRequestSeq ||
+            detailTab !== "history" ||
+            selectedId !== accountId ||
+            !body.isConnected
+          ) {
+            return;
+          }
+          body.textContent = "";
+          appendText(
+            body,
+            "div",
+            "error-box",
+            error.message || "历史加载失败",
+          );
+        }
+      }
       async function loadHistory() {
         const current = accounts().find((item) => item.id === selectedId);
         if (!current) {
           return;
         }
+        const accountId = current.id;
+        const requestSeq = ++historyRequestSeq;
+        const panel = $("#history-panel");
+        $("#history-title").textContent =
+          `最近查询 · ${current.name || accountId} · ${accountId}`;
+        panel.classList.remove("hidden");
+        panel.focus({ preventScroll: true });
+        panel.scrollIntoView({ behavior: "smooth", block: "start" });
         try {
           statusLine.className = "status-text";
           statusLine.textContent = "正在加载查询历史…";
           const data = await api(
-            `/v0/management/upstream-monitor/history?account_id=${encodeURIComponent(current.id)}&limit=50`,
+            `/v0/management/upstream-monitor/history?account_id=${encodeURIComponent(accountId)}&limit=50`,
           );
+          if (requestSeq !== historyRequestSeq || selectedId !== accountId) {
+            return;
+          }
           renderHistory(data.history || []);
           statusLine.textContent = "查询历史已加载";
         } catch (error) {
+          if (requestSeq !== historyRequestSeq || selectedId !== accountId) {
+            return;
+          }
           statusLine.className = "status-text error";
           statusLine.textContent = error.message || "历史加载失败";
         }
@@ -3079,11 +4225,65 @@
         loadState();
       });
       $("#header-refresh").addEventListener("click", loadState);
+      $("#refresh-all").addEventListener("click", () => refreshNow());
       $("#save-providers").addEventListener("click", saveProviders);
+      $("#cleanup-confirm-cancel").addEventListener("click", () => {
+        closeCleanupConfirmation();
+      });
+      $("#cleanup-confirm-submit").addEventListener("click", () => {
+        clearProviderSnapshot(pendingCleanupId);
+      });
+      settingsForm.addEventListener("submit", saveSettings);
+      const addCashCurrency = () => {
+        const input = settingsForm.querySelector("#cash-currency-add");
+        const currency = input.value.trim().toUpperCase();
+        if (!currency) return;
+        if (!/^[A-Z0-9._-]{1,12}$/.test(currency)) {
+          const feedback = settingsForm.querySelector("#settings-feedback");
+          feedback.className = "settings-feedback error";
+          feedback.textContent = "币种代码只能包含字母、数字、点、横线或下划线";
+          return;
+        }
+        if (!settingsCashRules.has(currency)) {
+          settingsCashRules.set(currency, { warning: "", critical: "" });
+        }
+        input.value = "";
+        settingsDirty = true;
+        renderCashThresholdRows();
+      };
+      settingsForm
+        .querySelector("#cash-currency-add-button")
+        .addEventListener("click", addCashCurrency);
+      settingsForm
+        .querySelector("#cash-currency-add")
+        .addEventListener("keydown", (event) => {
+          if (event.key !== "Enter") return;
+          event.preventDefault();
+          addCashCurrency();
+        });
+      settingsForm.addEventListener("input", () => {
+        settingsDirty = true;
+        settingsForm.querySelector("#settings-feedback").className =
+          "settings-feedback";
+        settingsForm.querySelector("#settings-feedback").textContent =
+          "有未保存的修改";
+      });
       $("#history-button").addEventListener("click", loadHistory);
       $("#history-close").addEventListener("click", () =>
         $("#history-panel").classList.add("hidden"),
       );
+      window.addEventListener("beforeunload", (event) => {
+        if (
+          providerDirty.size === 0 &&
+          patDrafts.size === 0 &&
+          patClears.size === 0 &&
+          !settingsDirty
+        ) {
+          return;
+        }
+        event.preventDefault();
+        event.returnValue = "";
+      });
       const remembered = sessionStorage.getItem(
         "upstream-monitor-management-key",
       );

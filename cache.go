@@ -4,17 +4,26 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 )
 
+const snapshotCacheFormatVersion = 2
+
+type persistedSnapshotCache struct {
+	FormatVersion int                          `json:"format_version"`
+	Entries       map[string]accountSnapshot   `json:"entries"`
+	History       map[string][]accountSnapshot `json:"history"`
+}
+
 type snapshotStore struct {
-	mu      sync.RWMutex
-	entries map[string]accountSnapshot
-	history map[string][]accountSnapshot
+	mu        sync.RWMutex
+	saveMu    sync.Mutex
+	entries   map[string]accountSnapshot
+	history   map[string][]accountSnapshot
+	writeFile func(string, []byte, os.FileMode) error
 }
 
 func newSnapshotStore() *snapshotStore {
@@ -51,6 +60,26 @@ func (s *snapshotStore) delete(id string) {
 	s.mu.Lock()
 	delete(s.entries, id)
 	delete(s.history, id)
+	s.mu.Unlock()
+}
+
+func (s *snapshotStore) removeActive(id string) {
+	if s == nil || id == "" {
+		return
+	}
+	s.mu.Lock()
+	delete(s.entries, id)
+	s.mu.Unlock()
+}
+
+func (s *snapshotStore) reapplyActive(mutate func(accountSnapshot) accountSnapshot) {
+	if s == nil || mutate == nil {
+		return
+	}
+	s.mu.Lock()
+	for id, snapshot := range s.entries {
+		s.entries[id] = mutate(snapshot)
+	}
 	s.mu.Unlock()
 }
 
@@ -111,6 +140,8 @@ func (s *snapshotStore) load(path string) error {
 	if s == nil || path == "" {
 		return nil
 	}
+	s.saveMu.Lock()
+	defer s.saveMu.Unlock()
 	raw, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
 		return nil
@@ -118,45 +149,112 @@ func (s *snapshotStore) load(path string) error {
 	if err != nil {
 		return fmt.Errorf("read snapshot cache: %w", err)
 	}
-	var entries map[string]accountSnapshot
-	if err := json.Unmarshal(raw, &entries); err == nil {
-		s.mu.Lock()
-		for id, snapshot := range entries {
-			if id != "" && !snapshot.CheckedAt.IsZero() {
-				if snapshot.Kind == "" {
-					snapshot.Kind = inferAccountKind(snapshot)
-				}
-				s.entries[id] = snapshot
-				s.history[id] = []accountSnapshot{snapshot}
-			}
-		}
-		s.mu.Unlock()
-		return nil
-	}
-	var cached struct {
-		Entries map[string]accountSnapshot   `json:"entries"`
-		History map[string][]accountSnapshot `json:"history"`
-	}
-	if err := json.Unmarshal(raw, &cached); err != nil {
+	entries, history, err := decodeSnapshotCache(raw)
+	if err != nil {
 		return fmt.Errorf("decode snapshot cache: %w", err)
 	}
 	s.mu.Lock()
-	for id, snapshot := range cached.Entries {
-		if id != "" && !snapshot.CheckedAt.IsZero() {
-			if snapshot.Kind == "" {
-				snapshot.Kind = inferAccountKind(snapshot)
-			}
-			s.entries[id] = snapshot
-		}
+	s.entries = entries
+	s.history = history
+	s.mu.Unlock()
+	return nil
+}
+
+func decodeSnapshotCache(raw []byte) (map[string]accountSnapshot, map[string][]accountSnapshot, error) {
+	var top map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &top); err != nil {
+		return nil, nil, err
 	}
-	for id, snapshots := range cached.History {
+	_, hasVersion := top["format_version"]
+	_, hasEntries := top["entries"]
+	_, hasHistory := top["history"]
+	if hasVersion || hasEntries || hasHistory {
+		var cached persistedSnapshotCache
+		if err := json.Unmarshal(raw, &cached); err != nil {
+			return nil, nil, err
+		}
+		if cached.FormatVersion > snapshotCacheFormatVersion || cached.FormatVersion < 0 {
+			return nil, nil, fmt.Errorf("unsupported snapshot cache format %d", cached.FormatVersion)
+		}
+		if cached.Entries == nil {
+			cached.Entries = map[string]accountSnapshot{}
+		}
+		if cached.History == nil {
+			cached.History = map[string][]accountSnapshot{}
+		}
+		entries, err := validateSnapshotEntries(cached.Entries)
+		if err != nil {
+			return nil, nil, err
+		}
+		history, err := validateSnapshotHistory(cached.History)
+		if err != nil {
+			return nil, nil, err
+		}
+		return entries, history, nil
+	}
+
+	var legacy map[string]accountSnapshot
+	if err := json.Unmarshal(raw, &legacy); err != nil {
+		return nil, nil, err
+	}
+	entries, err := validateSnapshotEntries(legacy)
+	if err != nil {
+		return nil, nil, err
+	}
+	history := make(map[string][]accountSnapshot, len(entries))
+	for id, snapshot := range entries {
+		history[id] = []accountSnapshot{snapshot}
+	}
+	return entries, history, nil
+}
+
+func validateSnapshotEntries(values map[string]accountSnapshot) (map[string]accountSnapshot, error) {
+	entries := make(map[string]accountSnapshot, len(values))
+	for id, snapshot := range values {
+		normalized, err := normalizeCachedSnapshot(id, snapshot)
+		if err != nil {
+			return nil, err
+		}
+		entries[id] = normalized
+	}
+	return entries, nil
+}
+
+func validateSnapshotHistory(values map[string][]accountSnapshot) (map[string][]accountSnapshot, error) {
+	history := make(map[string][]accountSnapshot, len(values))
+	for id, snapshots := range values {
 		if len(snapshots) > 100 {
 			snapshots = snapshots[:100]
 		}
-		s.history[id] = append([]accountSnapshot(nil), snapshots...)
+		normalized := make([]accountSnapshot, 0, len(snapshots))
+		for _, snapshot := range snapshots {
+			value, err := normalizeCachedSnapshot(id, snapshot)
+			if err != nil {
+				return nil, err
+			}
+			normalized = append(normalized, value)
+		}
+		history[id] = normalized
 	}
-	s.mu.Unlock()
-	return nil
+	return history, nil
+}
+
+func normalizeCachedSnapshot(key string, snapshot accountSnapshot) (accountSnapshot, error) {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return accountSnapshot{}, fmt.Errorf("snapshot cache contains an empty account id")
+	}
+	if snapshot.AccountID != "" && snapshot.AccountID != key {
+		return accountSnapshot{}, fmt.Errorf("snapshot %q contains mismatched account id %q", key, snapshot.AccountID)
+	}
+	snapshot.AccountID = key
+	if snapshot.CheckedAt.IsZero() && snapshot.LastSuccessAt == nil {
+		return accountSnapshot{}, fmt.Errorf("snapshot %q contains no valid timestamp", key)
+	}
+	if snapshot.Kind == "" {
+		snapshot.Kind = inferAccountKind(snapshot)
+	}
+	return snapshot, nil
 }
 
 func (s *snapshotStore) prune(keep map[string]struct{}) {
@@ -167,7 +265,6 @@ func (s *snapshotStore) prune(keep map[string]struct{}) {
 	for id := range s.entries {
 		if _, ok := keep[id]; !ok {
 			delete(s.entries, id)
-			delete(s.history, id)
 		}
 	}
 	s.mu.Unlock()
@@ -177,6 +274,8 @@ func (s *snapshotStore) save(path string) error {
 	if s == nil || path == "" {
 		return nil
 	}
+	s.saveMu.Lock()
+	defer s.saveMu.Unlock()
 	s.mu.RLock()
 	entries := make(map[string]accountSnapshot, len(s.entries))
 	history := make(map[string][]accountSnapshot, len(s.history))
@@ -187,35 +286,20 @@ func (s *snapshotStore) save(path string) error {
 		history[id] = append([]accountSnapshot(nil), snapshots...)
 	}
 	s.mu.RUnlock()
-	raw, err := json.Marshal(struct {
-		Entries map[string]accountSnapshot   `json:"entries"`
-		History map[string][]accountSnapshot `json:"history"`
-	}{Entries: entries, History: history})
+	raw, err := json.Marshal(persistedSnapshotCache{
+		FormatVersion: snapshotCacheFormatVersion,
+		Entries:       entries,
+		History:       history,
+	})
 	if err != nil {
 		return fmt.Errorf("encode snapshot cache: %w", err)
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		return fmt.Errorf("create snapshot cache directory: %w", err)
+	writeFile := s.writeFile
+	if writeFile == nil {
+		writeFile = writeFileAtomic
 	}
-	tmp, err := os.CreateTemp(filepath.Dir(path), ".upstream-monitor-cache-*.tmp")
-	if err != nil {
-		return fmt.Errorf("create snapshot cache temp file: %w", err)
-	}
-	tmpName := tmp.Name()
-	defer os.Remove(tmpName)
-	if err := tmp.Chmod(0o600); err != nil {
-		_ = tmp.Close()
-		return fmt.Errorf("protect snapshot cache: %w", err)
-	}
-	if _, err := tmp.Write(raw); err != nil {
-		_ = tmp.Close()
-		return fmt.Errorf("write snapshot cache: %w", err)
-	}
-	if err := tmp.Close(); err != nil {
-		return fmt.Errorf("close snapshot cache: %w", err)
-	}
-	if err := os.Rename(tmpName, path); err != nil {
-		return fmt.Errorf("replace snapshot cache: %w", err)
+	if err := writeFile(path, raw, 0o600); err != nil {
+		return fmt.Errorf("persist snapshot cache: %w", err)
 	}
 	return nil
 }

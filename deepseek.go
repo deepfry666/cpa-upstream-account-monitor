@@ -89,9 +89,17 @@ func accountSnapshotWithSuccess(previous accountSnapshot, current accountSnapsho
 	if current.Kind == "" {
 		current.Kind = inferAccountKind(current)
 	}
+	current.LastAttemptAt = now
 	current.LastSuccessAt = &now
 	current.LatencyMs = latency.Milliseconds()
 	current.Stale = false
+	for name, section := range current.Sections {
+		if section.Status == "available" && section.UpdatedAt == nil {
+			updatedAt := now
+			section.UpdatedAt = &updatedAt
+			current.Sections[name] = section
+		}
+	}
 	return current
 }
 

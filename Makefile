@@ -1,5 +1,5 @@
 PLUGIN_NAME ?= upstream-monitor
-VERSION ?= 0.4.1
+VERSION ?= 0.5.0
 BUILD_DIR ?= dist
 GOOS ?= $(shell go env GOOS)
 GOARCH ?= $(shell go env GOARCH)

@@ -1,6 +1,11 @@
 package main
 
-import "time"
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"strings"
+	"time"
+)
 
 type accountStatus string
 
@@ -34,8 +39,11 @@ type quotaWindow struct {
 	UsedFraction      *float64   `json:"used_fraction,omitempty"`
 	RemainingAmount   string     `json:"remaining_amount,omitempty"`
 	TotalAmount       string     `json:"total_amount,omitempty"`
+	UsedAmount        string     `json:"used_amount,omitempty"`
+	ExcessAmount      string     `json:"excess_amount,omitempty"`
 	Unit              string     `json:"unit,omitempty"`
 	ResetAt           *time.Time `json:"reset_at,omitempty"`
+	ExpiresAt         *time.Time `json:"expires_at,omitempty"`
 }
 
 type quotaQuantity struct {
@@ -48,11 +56,19 @@ type quotaQuantity struct {
 	Used      string     `json:"used,omitempty"`
 	Unit      string     `json:"unit"`
 	ResetAt   *time.Time `json:"reset_at,omitempty"`
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
 }
 
 type thresholdConfig struct {
-	WarningPercent  float64 `yaml:"warning_percent"`
-	CriticalPercent float64 `yaml:"critical_percent"`
+	WarningPercent  float64                  `yaml:"warning_percent"`
+	CriticalPercent float64                  `yaml:"critical_percent"`
+	CashByCurrency  map[string]cashThreshold `yaml:"cash_by_currency,omitempty"`
+	CashByAccount   map[string]cashThreshold `yaml:"cash_by_account,omitempty"`
+}
+
+type cashThreshold struct {
+	Warning  string `yaml:"warning" json:"warning"`
+	Critical string `yaml:"critical" json:"critical"`
 }
 
 type snapshotError struct {
@@ -61,24 +77,47 @@ type snapshotError struct {
 }
 
 type accountSnapshot struct {
-	AccountID     string          `json:"id"`
-	AccountName   string          `json:"name"`
-	Provider      string          `json:"provider"`
-	AdapterID     string          `json:"adapter"`
-	BaseURL       string          `json:"base_url,omitempty"`
-	Kind          accountKind     `json:"kind"`
-	Status        accountStatus   `json:"status"`
-	Capabilities  []string        `json:"capabilities,omitempty"`
-	Balances      []moneyBalance  `json:"balances,omitempty"`
-	Windows       []quotaWindow   `json:"windows,omitempty"`
-	Quantities    []quotaQuantity `json:"quantities,omitempty"`
-	CheckedAt     time.Time       `json:"checked_at"`
-	LastSuccessAt *time.Time      `json:"last_success_at,omitempty"`
-	LatencyMs     int64           `json:"latency_ms,omitempty"`
-	Stale         bool            `json:"stale"`
-	Error         *snapshotError  `json:"error,omitempty"`
-	Warnings      []string        `json:"warnings,omitempty"`
-	Details       map[string]any  `json:"details,omitempty"`
+	AccountID      string                   `json:"id"`
+	AccountName    string                   `json:"name"`
+	Provider       string                   `json:"provider"`
+	AdapterID      string                   `json:"adapter"`
+	BaseURL        string                   `json:"base_url,omitempty"`
+	Kind           accountKind              `json:"kind"`
+	Status         accountStatus            `json:"status"`
+	Capabilities   []string                 `json:"capabilities,omitempty"`
+	Balances       []moneyBalance           `json:"balances,omitempty"`
+	Windows        []quotaWindow            `json:"windows,omitempty"`
+	Quantities     []quotaQuantity          `json:"quantities,omitempty"`
+	CheckedAt      time.Time                `json:"checked_at"`
+	LastAttemptAt  time.Time                `json:"last_attempt_at,omitempty"`
+	LastSuccessAt  *time.Time               `json:"last_success_at,omitempty"`
+	LatencyMs      int64                    `json:"latency_ms,omitempty"`
+	ConfigRevision int64                    `json:"config_revision,omitempty"`
+	Stale          bool                     `json:"stale"`
+	Error          *snapshotError           `json:"error,omitempty"`
+	Warnings       []string                 `json:"warnings,omitempty"`
+	Sections       map[string]sectionStatus `json:"sections,omitempty"`
+	Details        map[string]any           `json:"details,omitempty"`
+}
+
+type sectionStatus struct {
+	Status      string     `json:"status"`
+	UpdatedAt   *time.Time `json:"updated_at,omitempty"`
+	ErrorCode   string     `json:"error_code,omitempty"`
+	Message     string     `json:"message,omitempty"`
+	ActionURL   string     `json:"action_url,omitempty"`
+	ActionLabel string     `json:"action_label,omitempty"`
+}
+
+func markSectionError(snapshot *accountSnapshot, name, code, message string) {
+	if snapshot == nil || strings.TrimSpace(name) == "" {
+		return
+	}
+	if snapshot.Sections == nil {
+		snapshot.Sections = map[string]sectionStatus{}
+	}
+	snapshot.Sections[name] = sectionStatus{Status: "error", ErrorCode: code, Message: message}
+	snapshot.Status = maxStatus(snapshot.Status, statusWarning)
 }
 
 type providerView struct {
@@ -88,31 +127,51 @@ type providerView struct {
 	CustomName              string           `json:"custom_name,omitempty"`
 	Provider                string           `json:"provider"`
 	BaseURL                 string           `json:"base_url"`
+	ProxyMode               string           `json:"proxy_mode"`
 	ProxyConfigured         bool             `json:"proxy_configured"`
 	Adapter                 string           `json:"adapter"`
 	AdapterOverride         string           `json:"adapter_override,omitempty"`
 	Monitored               bool             `json:"monitored"`
 	ManagementPATConfigured bool             `json:"management_pat_configured"`
+	PATStatus               string           `json:"pat_status,omitempty"`
+	PATStatusMessage        string           `json:"pat_status_message,omitempty"`
+	RelinkRequired          bool             `json:"relink_required,omitempty"`
+	FirstSeenAt             *time.Time       `json:"first_seen_at,omitempty"`
 	KeyHint                 string           `json:"key_hint,omitempty"`
 	Latest                  *accountSnapshot `json:"latest,omitempty"`
 }
 
 type monitorUIState struct {
-	Version     string            `json:"version"`
-	GeneratedAt time.Time         `json:"generated_at"`
-	Refreshing  bool              `json:"refreshing"`
-	LastRefresh *time.Time        `json:"last_refresh,omitempty"`
-	LastError   string            `json:"last_error,omitempty"`
-	Providers   []providerView    `json:"providers"`
-	Report      report            `json:"report"`
-	Config      monitorConfigView `json:"config"`
+	Version       string              `json:"version"`
+	GeneratedAt   time.Time           `json:"generated_at"`
+	Revision      int64               `json:"revision"`
+	Refreshing    bool                `json:"refreshing"`
+	LastRefresh   *time.Time          `json:"last_refresh,omitempty"`
+	LastError     string              `json:"last_error,omitempty"`
+	Warnings      []string            `json:"warnings,omitempty"`
+	DirectorySync directorySyncStatus `json:"directory_sync"`
+	Providers     []providerView      `json:"providers"`
+	RefreshJob    *accountRefreshJob  `json:"refresh_job,omitempty"`
+	Report        report              `json:"report"`
+	Config        monitorConfigView   `json:"config"`
+}
+
+type directorySyncStatus struct {
+	Status        string     `json:"status"`
+	LastAttemptAt *time.Time `json:"last_attempt_at,omitempty"`
+	LastSuccessAt *time.Time `json:"last_success_at,omitempty"`
+	Error         string     `json:"error,omitempty"`
 }
 
 type monitorConfigView struct {
-	CacheTTLSeconds      int     `json:"cache_ttl_seconds"`
-	RequestTimeoutSecond int     `json:"request_timeout_seconds"`
-	WarningPercent       float64 `json:"warning_percent"`
-	CriticalPercent      float64 `json:"critical_percent"`
+	CacheTTLSeconds      int                      `json:"cache_ttl_seconds"`
+	SyncIntervalSeconds  int                      `json:"sync_interval_seconds"`
+	RequestTimeoutSecond int                      `json:"request_timeout_seconds"`
+	AccountTimeoutSecond int                      `json:"account_timeout_seconds"`
+	WarningPercent       float64                  `json:"warning_percent"`
+	CriticalPercent      float64                  `json:"critical_percent"`
+	CashByCurrency       map[string]cashThreshold `json:"cash_by_currency,omitempty"`
+	CashByAccount        map[string]cashThreshold `json:"cash_by_account,omitempty"`
 }
 
 type report struct {
@@ -138,17 +197,52 @@ type reportSummary struct {
 }
 
 type reportAlert struct {
-	Level     accountStatus `json:"level"`
-	AccountID string        `json:"account_id"`
-	Type      string        `json:"type"`
-	Message   string        `json:"message"`
+	ID         string        `json:"id,omitempty"`
+	Level      accountStatus `json:"level"`
+	AccountID  string        `json:"account_id"`
+	MetricID   string        `json:"metric_id,omitempty"`
+	WindowID   string        `json:"window_id,omitempty"`
+	Type       string        `json:"type"`
+	Code       string        `json:"code,omitempty"`
+	Message    string        `json:"message"`
+	Diagnostic string        `json:"diagnostic,omitempty"`
+	Current    string        `json:"current,omitempty"`
+	Unit       string        `json:"unit,omitempty"`
+	Threshold  string        `json:"threshold,omitempty"`
+	OccurredAt *time.Time    `json:"occurred_at,omitempty"`
+}
+
+func stableAlertID(alert reportAlert) string {
+	sum := sha256.Sum256([]byte(strings.Join([]string{
+		alert.AccountID,
+		alert.MetricID,
+		alert.WindowID,
+		alert.Type,
+		alert.Code,
+	}, "\x00")))
+	return "alert_" + hex.EncodeToString(sum[:8])
 }
 
 type credentialCandidate struct {
-	AuthIndex string
-	AuthID    string
-	Name      string
-	Provider  string
-	BaseURL   string
-	ProxyURL  string
+	AccountID         string
+	LegacyID          string
+	AuthIndex         string
+	AuthID            string
+	Name              string
+	Provider          string
+	BaseURL           string
+	ManagementBaseURL string
+	ProxyMode         string
+	ProxyURL          string
+	AllowInternalHTTP bool
+	Source            string
+	SourceID          string
+	Fingerprint       string
+}
+
+func candidateAccountID(candidate credentialCandidate) string {
+	if strings.TrimSpace(candidate.AccountID) != "" {
+		return strings.TrimSpace(candidate.AccountID)
+	}
+	return strings.TrimSpace(candidate.AuthIndex)
 }
