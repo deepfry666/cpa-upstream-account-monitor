@@ -1,0 +1,63 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goarch: amd64
+            cc: gcc
+            package: gcc
+          - goarch: arm64
+            cc: aarch64-linux-gnu-gcc
+            package: gcc-aarch64-linux-gnu
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Install compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y "${{ matrix.package }}"
+      - name: Test
+        run: go test ./...
+      - name: Build package
+        env:
+          CC: ${{ matrix.cc }}
+        run: make package VERSION="${GITHUB_REF_NAME#v}" GOOS=linux GOARCH=${{ matrix.goarch }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-${{ matrix.goarch }}
+          path: |
+            dist/*.zip
+            dist/*.sha256
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          find dist -name '*.sha256' -exec cat {} \; | sort -k 2 > dist/checksums.txt
+          gh release create "${GITHUB_REF_NAME}" dist/*.zip dist/checksums.txt \
+            --repo "${GITHUB_REPOSITORY}" \
+            --title "上游账户监控 ${GITHUB_REF_NAME}" \
+            --generate-notes
