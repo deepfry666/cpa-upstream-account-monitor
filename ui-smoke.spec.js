@@ -7,7 +7,7 @@ const uiURL = `${uiBaseURL}/ui.html`;
 const iframeHarnessURL = `${uiBaseURL}/__upstream-monitor-iframe-harness`;
 
 const uiState = {
-  version: "0.5.6",
+  version: "0.5.7",
   generated_at: "2026-09-18T08:00:00Z",
   refreshing: false,
   providers: [
@@ -1440,6 +1440,7 @@ test("account details keep current quota visible while grouped views expose bill
   await page.goto(uiURL);
 
   await expect(page.locator("#detail [role='tab']")).toHaveText([
+    "概览",
     "计费与限制",
     "用量统计",
     "历史",
@@ -1470,6 +1471,10 @@ test("account details keep current quota visible while grouped views expose bill
   await expect(page.locator("#detail")).toContainText("用户：tester");
   await expect(page.locator("#detail")).toContainText("计费接口暂时不可用");
   await expect(page.locator("#detail")).toContainText("统计口径按 UTC");
+
+  await page.getByRole("tab", { name: "概览" }).click();
+  await expect(page.locator("#detail")).toContainText("配额明细");
+  await expect(page.locator("#detail")).toContainText("70 / 100 TOKENS");
 });
 
 test("NewAPI account balances show current remaining without lifetime total", async ({
