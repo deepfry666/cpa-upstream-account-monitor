@@ -49,7 +49,10 @@ const commandCodeUsageFixture = `{
   "totalTokens": 258000,
   "totalCredits": 20,
   "totalCost": 20,
-  "periodBasis": "subscription"
+  "totalMonthlyCredits": 15,
+  "totalPurchasedCredits": 5,
+  "totalFreeCredits": 0,
+  "periodBasis": "billing-period"
 }`
 
 const commandCodePersonalWhoamiFixture = `{
@@ -114,16 +117,15 @@ func TestParseCommandCodeGOATSnapshot(t *testing.T) {
 	if available.Name != "availableCredits" || available.Remaining != "95" || available.Total != "110" || available.Used != "15" || available.Unit != "credits" {
 		t.Fatalf("unexpected available credits: %+v", available)
 	}
-	if len(snapshot.Windows) != 2 {
-		t.Fatalf("windows = %d, want 2 official windows: %+v", len(snapshot.Windows), snapshot.Windows)
+	if len(snapshot.Windows) != 3 {
+		t.Fatalf("windows = %d, want 2 upstream windows and 1 derived monthly window: %+v", len(snapshot.Windows), snapshot.Windows)
 	}
 	if snapshot.Windows[0].Name != "fiveHour" || snapshot.Windows[0].RemainingAmount != "12" || snapshot.Windows[0].TotalAmount != "20" {
 		t.Fatalf("unexpected five-hour window: %+v", snapshot.Windows[0])
 	}
-	for _, window := range snapshot.Windows {
-		if window.Name == "month" {
-			t.Fatalf("month window was fabricated: %+v", snapshot.Windows)
-		}
+	monthWindow := snapshot.Windows[2]
+	if monthWindow.Name != "month" || monthWindow.Source != "derived" || monthWindow.RemainingAmount != "55" || monthWindow.TotalAmount != "70" || monthWindow.UsedAmount != "15" || monthWindow.ResetAt == nil {
+		t.Fatalf("unexpected derived month window: %+v", monthWindow)
 	}
 	if snapshot.Details["plan"] == nil || snapshot.Details["usage"] == nil || snapshot.Details["subscription"] == nil || snapshot.Details["org_limits"] == nil {
 		t.Fatalf("missing structured details: %+v", snapshot.Details)
@@ -149,6 +151,9 @@ func TestParseCommandCodeUsesServerGrantWithoutPlanOverride(t *testing.T) {
 	if available.Remaining != "30" || available.Total != "35" || available.Used != "5" {
 		t.Fatalf("available credits were overridden: %+v", available)
 	}
+	if len(snapshot.Windows) != 0 {
+		t.Fatalf("unbounded account fabricated windows: %+v", snapshot.Windows)
+	}
 }
 
 func TestParseCommandCodeWithoutServerGrantDoesNotTreatRemainingAsTotal(t *testing.T) {
@@ -165,6 +170,9 @@ func TestParseCommandCodeWithoutServerGrantDoesNotTreatRemainingAsTotal(t *testi
 	available := snapshot.Quantities[0]
 	if available.Remaining != "30" || available.Total != "" || available.Used != "" {
 		t.Fatalf("missing server grant fabricated a pool total: %+v", available)
+	}
+	if len(snapshot.Windows) != 0 {
+		t.Fatalf("missing official period data fabricated windows: %+v", snapshot.Windows)
 	}
 }
 
@@ -194,7 +202,7 @@ func TestParseCommandCodeMapsExplicitMonthWindow(t *testing.T) {
 		t.Fatalf("windows = %d, want explicit month only: %+v", len(snapshot.Windows), snapshot.Windows)
 	}
 	window := snapshot.Windows[0]
-	if window.Name != "month" || window.RemainingAmount != "7" || window.TotalAmount != "10" || window.ResetAt == nil {
+	if window.Name != "month" || window.Source != "upstream" || window.RemainingAmount != "7" || window.TotalAmount != "10" || window.UsedAmount != "3" || window.ResetAt == nil {
 		t.Fatalf("unexpected explicit month window: %+v", window)
 	}
 }
@@ -231,19 +239,18 @@ func TestParseCommandCodePersonalAccount(t *testing.T) {
 		t.Fatalf("unexpected personal account details: %+v", account)
 	}
 	available := snapshot.Quantities[0]
-	if available.Remaining != "67.47249" || available.Total != "" || available.Used != "" {
+	if available.Remaining != "67.47249" || available.Total != "69.888643" || available.Used != "2.416152" {
 		t.Fatalf("unexpected personal available credits: %+v", available)
 	}
 	monthly := snapshot.Quantities[1]
-	if monthly.Remaining != "67.47249" || monthly.Total != "" || monthly.Used != "" {
+	if monthly.Remaining != "67.47249" || monthly.Total != "69.888643" || monthly.Used != "2.416152" {
 		t.Fatalf("unexpected personal monthly credits: %+v", monthly)
 	}
-	estimate, ok := snapshot.Details["estimate"].(map[string]any)
-	if !ok || estimate["availableTotal"] != "69.888643" || estimate["used"] != "2.416152" {
-		t.Fatalf("missing personal estimate details: %+v", snapshot.Details["estimate"])
+	if _, ok := snapshot.Details["estimate"]; ok {
+		t.Fatalf("official-derived totals leaked into estimate details: %+v", snapshot.Details["estimate"])
 	}
-	if len(snapshot.Windows) != 2 {
-		t.Fatalf("personal account windows = %d, want 2 official windows: %+v", len(snapshot.Windows), snapshot.Windows)
+	if len(snapshot.Windows) != 3 {
+		t.Fatalf("personal account windows = %d, want 3 windows: %+v", len(snapshot.Windows), snapshot.Windows)
 	}
 	if snapshot.Windows[0].Name != "fiveHour" || snapshot.Windows[0].RemainingAmount != "11.47249" || snapshot.Windows[0].TotalAmount != "14" {
 		t.Fatalf("unexpected personal five-hour window: %+v", snapshot.Windows[0])
@@ -251,10 +258,9 @@ func TestParseCommandCodePersonalAccount(t *testing.T) {
 	if snapshot.Windows[1].Name != "weekly" || snapshot.Windows[1].RemainingAmount != "32.47249" || snapshot.Windows[1].TotalAmount != "35" {
 		t.Fatalf("unexpected personal weekly window: %+v", snapshot.Windows[1])
 	}
-	for _, window := range snapshot.Windows {
-		if window.Name == "month" {
-			t.Fatalf("personal month window was fabricated: %+v", snapshot.Windows)
-		}
+	monthWindow := snapshot.Windows[2]
+	if monthWindow.Name != "month" || monthWindow.Source != "derived" || monthWindow.RemainingAmount != "67.47249" || monthWindow.TotalAmount != "69.888643" || monthWindow.UsedAmount != "2.416152" || monthWindow.ResetAt == nil {
+		t.Fatalf("unexpected personal month window: %+v", monthWindow)
 	}
 	for _, warning := range snapshot.Warnings {
 		if strings.Contains(warning, "组织限制") {

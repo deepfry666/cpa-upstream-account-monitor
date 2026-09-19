@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 const commandCodeAPIBase = "https://api.commandcode.ai"
@@ -138,23 +139,32 @@ func parseCommandCodeSnapshot(candidate credentialCandidate, whoamiBody, credits
 	subscription, subscriptionOK := parseCommandCodeSubscription(subscriptionBody)
 	usage, usageOK := parseCommandCodeObject(usageBody)
 	planID := firstNonEmpty(stringValue(credits, "planId"), stringValue(subscription, "planId"))
+	active := commandCodeSubscriptionActive(subscription, subscriptionOK)
+	monthlyPeriodConfirmed := active || strings.EqualFold(stringValue(usage, "periodBasis"), "billing-period")
+	monthlySpent, monthlySpentOK := commandCodeNumber(usage, "totalMonthlyCredits")
+	if monthlySpent < 0 {
+		monthlySpentOK = false
+	}
 	monthlyGranted := monthlyCredits
 	monthlyGrantedExplicit := false
 	if granted, ok := commandCodeNumber(credits, "monthlyCreditsGranted"); ok && granted > 0 {
 		monthlyGranted = granted
 		monthlyGrantedExplicit = true
 	}
+	if !monthlyGrantedExplicit && monthlyPeriodConfirmed && monthlySpentOK {
+		monthlyGranted = monthlyCredits + monthlySpent
+	}
 	if monthlyGranted < monthlyCredits {
 		monthlyGranted = monthlyCredits
 	}
+	monthlyTotalKnown := monthlyGrantedExplicit || (monthlyPeriodConfirmed && monthlySpentOK)
 
-	active := commandCodeSubscriptionActive(subscription, subscriptionOK)
 	totalRemaining := monthlyCredits + purchasedCredits + freeCredits
 	monthlyTotal := ""
 	monthlyUsed := ""
 	availableTotal := ""
 	availableUsed := ""
-	if monthlyGrantedExplicit {
+	if monthlyTotalKnown {
 		monthlyTotal = commandCodeQuantityNumber(monthlyGranted)
 		monthlyUsed = commandCodeQuantityNumber(maxFloat(monthlyGranted-monthlyCredits, 0))
 		totalPool := monthlyGranted + purchasedCredits + freeCredits
@@ -166,7 +176,7 @@ func parseCommandCodeSnapshot(candidate credentialCandidate, whoamiBody, credits
 	}
 	estimatedPool := ""
 	estimatedUsed := ""
-	if !monthlyGrantedExplicit && usageOK {
+	if !monthlyTotalKnown && usageOK {
 		if totalCost, ok := commandCodeNumber(usage, "totalCost", "totalCredits"); ok && totalCost >= 0 {
 			estimatedPool = commandCodeQuantityNumber(totalCost + totalRemaining)
 			estimatedUsed = commandCodeQuantityNumber(totalCost)
@@ -221,7 +231,9 @@ func parseCommandCodeSnapshot(candidate credentialCandidate, whoamiBody, credits
 	}
 
 	parsedWindows := map[string]*quotaWindow{}
-	if windows := commandCodeWindowLimits(creditsBody, credits); windows != nil && boolValue(windows, "limited") {
+	windows := commandCodeWindowLimits(creditsBody, credits)
+	windowsLimited := windows != nil && boolValue(windows, "limited")
+	if windowsLimited {
 		if boolValue(windows, "exceeded") {
 			snapshot.Warnings = append(snapshot.Warnings, "Command Code 当前额度窗口已超出限制。")
 		}
@@ -249,6 +261,9 @@ func parseCommandCodeSnapshot(candidate credentialCandidate, whoamiBody, credits
 			parsedWindows[definition.name] = window
 		}
 	}
+	if parsedWindows["month"] == nil && monthlyTotalKnown && windowsLimited && monthlyPeriodConfirmed {
+		parsedWindows["month"] = commandCodeDerivedMonthlyWindow(monthlyCredits, monthlyGranted, subscription, subscriptionOK)
+	}
 	for _, name := range []string{"fiveHour", "weekly", "month"} {
 		if window := parsedWindows[name]; window != nil {
 			snapshot.Windows = append(snapshot.Windows, *window)
@@ -271,6 +286,7 @@ func parseCommandCodeSnapshot(candidate credentialCandidate, whoamiBody, credits
 			"monthlyCreditsGranted": monthlyGranted,
 			"active":                active,
 			"grantExplicit":         monthlyGrantedExplicit,
+			"grantDerived":          monthlyTotalKnown && !monthlyGrantedExplicit,
 		},
 		"credits": credits,
 		"account": map[string]any{
@@ -456,13 +472,46 @@ func commandCodeWindow(name string, object map[string]any) (*quotaWindow, error)
 	usedFraction := 1 - fraction
 	return &quotaWindow{
 		Name:              name,
+		Source:            "upstream",
 		RemainingFraction: &fraction,
 		UsedFraction:      &usedFraction,
 		RemainingAmount:   commandCodeQuantityNumber(remaining),
 		TotalAmount:       commandCodeQuantityNumber(cap),
+		UsedAmount:        commandCodeQuantityNumber(used),
 		Unit:              "credits",
 		ResetAt:           timeValue(object, "resetAt", "reset_at", "resetsAt"),
 	}, nil
+}
+
+func commandCodeDerivedMonthlyWindow(remaining, total float64, subscription map[string]any, subscriptionOK bool) *quotaWindow {
+	if total <= 0 {
+		return nil
+	}
+	remaining = maxFloat(remaining, 0)
+	if remaining > total {
+		total = remaining
+	}
+	if total <= 0 {
+		return nil
+	}
+	used := maxFloat(total-remaining, 0)
+	fraction := remaining / total
+	usedFraction := used / total
+	var resetAt *time.Time
+	if subscriptionOK {
+		resetAt = timeValue(subscription, "currentPeriodEnd", "periodEnd", "endsAt")
+	}
+	return &quotaWindow{
+		Name:              "month",
+		Source:            "derived",
+		RemainingFraction: &fraction,
+		UsedFraction:      &usedFraction,
+		RemainingAmount:   commandCodeQuantityNumber(remaining),
+		TotalAmount:       commandCodeQuantityNumber(total),
+		UsedAmount:        commandCodeQuantityNumber(used),
+		Unit:              "credits",
+		ResetAt:           resetAt,
+	}
 }
 
 func commandCodeEndpoint(baseURL, path string, query url.Values) string {

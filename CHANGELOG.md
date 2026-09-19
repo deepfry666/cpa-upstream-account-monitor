@@ -1,5 +1,17 @@
 # 更新日志
 
+## 0.5.4 - 2026-09-19
+
+本补丁修正 Command Code 月度额度显示。月度窗口不再依赖服务端 `windowLimits.month`，而是在账单周期可确认时，使用官方月度已用量和月度剩余 Credits 生成；偏好和缓存格式仍为版本 `2`，从 `0.5.3` 可直接升级。
+
+### Command Code
+
+- `/alpha/usage/summary.totalMonthlyCredits` 作为本账单周期已用量，`/alpha/billing/credits.monthlyCredits` 作为剩余量，生成“一月”窗口。
+- 重置时间取自有效订阅的 `currentPeriodEnd`；服务端明确返回 `windowLimits.month` 时仍优先使用服务端窗口。
+- 不使用套餐名和硬编码月额度表。缺少月度用量、月度剩余或账单周期依据时不生成一月窗口。
+- 套餐额度与可用 Credits 同步展示服务端已用和剩余，不再只显示一个无法判断进度的余额。
+- 新增 `source` 字段区分 `upstream` 窗口和 `derived` 月度窗口，不改变旧缓存读取。
+
 ## 0.5.3 - 2026-09-19
 
 本补丁修复旧位置型账户迁移到稳定 ID 时的快照和历史迁移缺口，并将 UI 回归测试封装为可重复执行的构建目标。偏好和缓存格式仍为版本 `2`，从 `0.5.2` 可直接升级。

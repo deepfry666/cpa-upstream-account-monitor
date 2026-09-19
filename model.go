@@ -35,6 +35,7 @@ type moneyBalance struct {
 
 type quotaWindow struct {
 	Name              string     `json:"name"`
+	Source            string     `json:"source,omitempty"`
 	RemainingFraction *float64   `json:"remaining_fraction,omitempty"`
 	UsedFraction      *float64   `json:"used_fraction,omitempty"`
 	RemainingAmount   string     `json:"remaining_amount,omitempty"`

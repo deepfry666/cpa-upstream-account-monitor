@@ -7,7 +7,7 @@ const uiURL = `${uiBaseURL}/ui.html`;
 const iframeHarnessURL = `${uiBaseURL}/__upstream-monitor-iframe-harness`;
 
 const uiState = {
-  version: "0.5.3",
+  version: "0.5.4",
   generated_at: "2026-09-18T08:00:00Z",
   refreshing: false,
   providers: [
@@ -113,6 +113,17 @@ const uiState = {
             unit: "credits",
             reset_at: "2026-09-25T12:33:10Z",
           },
+          {
+            name: "month",
+            source: "derived",
+            remaining_fraction: 0.857143,
+            used_fraction: 0.142857,
+            remaining_amount: "30",
+            total_amount: "35",
+            used_amount: "5",
+            unit: "credits",
+            reset_at: "2026-10-18T01:54:31Z",
+          },
         ],
         details: {
           plan: {
@@ -147,6 +158,7 @@ const uiState = {
             completedCount: 490,
             failedCount: 0,
             totalCredits: 2.4161524415,
+            totalMonthlyCredits: 5,
             totalCost: 2.4161524415,
             periodBasis: "billing-period",
           },
@@ -1498,6 +1510,7 @@ for (const viewport of [
       "套餐额度",
       "5 小时",
       "一周",
+      "一月",
       "当前仅有套餐月额度，没有额外的已购或赠送 Credits。",
       "Credits 状态",
     ]) {
@@ -1507,7 +1520,6 @@ for (const viewport of [
       bodyText.indexOf("套餐额度"),
     );
     expect(bodyText).toContain("30 / 35 credits");
-    expect(bodyText).not.toContain("一月");
     expect(bodyText).not.toContain("本周期用量");
 
     await page.getByRole("tab", { name: "用量统计" }).click();
