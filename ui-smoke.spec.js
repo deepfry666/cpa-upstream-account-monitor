@@ -7,7 +7,7 @@ const uiURL = `${uiBaseURL}/ui.html`;
 const iframeHarnessURL = `${uiBaseURL}/__upstream-monitor-iframe-harness`;
 
 const uiState = {
-  version: "0.5.5",
+  version: "0.5.6",
   generated_at: "2026-09-18T08:00:00Z",
   refreshing: false,
   providers: [
@@ -1470,6 +1470,73 @@ test("account details keep current quota visible while grouped views expose bill
   await expect(page.locator("#detail")).toContainText("用户：tester");
   await expect(page.locator("#detail")).toContainText("计费接口暂时不可用");
   await expect(page.locator("#detail")).toContainText("统计口径按 UTC");
+});
+
+test("NewAPI account balances show current remaining without lifetime total", async ({
+  page,
+}) => {
+  const state = structuredClone(uiState);
+  state.report.accounts = [
+    {
+      id: "newapi-remaining",
+      name: "牛VPN",
+      provider: "codex-api-key",
+      adapter: "newapi-usage",
+      base_url: "https://newapi.example.com",
+      kind: "quota",
+      status: "ok",
+      capabilities: ["quota"],
+      checked_at: "2026-09-18T08:00:00Z",
+      last_success_at: "2026-09-18T08:00:00Z",
+      quantities: [
+        {
+          name: "当前 Key",
+          scope: "token",
+          source: "/api/usage/token/",
+          unit: "CNY",
+        },
+        {
+          name: "NewAPI 账户余额",
+          scope: "account",
+          source: "/api/user/self",
+          display: "remaining",
+          remaining: "495.921488",
+          total: "1000",
+          used: "504.078512",
+          unit: "CNY",
+        },
+      ],
+      windows: [],
+      balances: [],
+      details: {},
+      warnings: [],
+    },
+  ];
+  state.report.summary = {
+    ...state.report.summary,
+    total: 1,
+    ok: 1,
+    quotas: 1,
+  };
+  state.report.alerts = [];
+  await page.unroute("**/v0/management/upstream-monitor/state");
+  await page.route(
+    "**/v0/management/upstream-monitor/state",
+    async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(state),
+      });
+    },
+  );
+
+  await page.goto(uiURL);
+  await expect(page.locator(".hero-label")).toHaveText("可用余额");
+  await expect(page.locator(".hero-value")).toHaveText("495.92 CNY");
+  const bodyText = await page.locator("body").innerText();
+  expect(bodyText).not.toContain("495.92 / 1000 CNY");
+  expect(bodyText).toContain("NewAPI 账户余额");
 });
 
 test("clearing an account snapshot requires explicit confirmation", async ({

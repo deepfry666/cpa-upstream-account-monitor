@@ -4,7 +4,7 @@
 
 A native CLIProxyAPI / CPA Manager Plus plugin for discovering upstream accounts from CPA configuration and host credentials, then monitoring balances, quota windows, usage, and health. It includes a Chinese-first responsive management UI and read-only endpoints for Hermes.
 
-Current version: `0.5.5`. The technical plugin ID and shared-library name remain `upstream-monitor`.
+Current version: `0.5.6`. The technical plugin ID and shared-library name remain `upstream-monitor`.
 
 ## Behavior
 
@@ -29,6 +29,8 @@ The model keeps these concepts separate:
 Explicit percentages and fractions are parsed according to the protocol, not guessed from values below one. A window with `used > total` is retained, its display progress is clamped to 100%, and its overage still affects severity. Expiry and reset time are not copied into each other.
 
 NewAPI account PAT queries and current-key quota queries are independent. Missing or failed PAT access does not discard valid key data, and a failed key query does not discard valid account data. PAT credentials are never used as inference credentials.
+
+NewAPI account responses report the current remaining balance. The lifetime granted total remains internal data and is no longer shown in the primary metric or quota details, so a historical top-up total cannot be mistaken for the currently available balance.
 
 Command Code maps the five-hour and weekly windows directly from `windowLimits`. Its monthly window is derived from the active billing period's `totalMonthlyCredits` and `monthlyCredits`, with the subscription `currentPeriodEnd` as the reset time. The window is shown only when those server fields are present; no hardcoded plan allowance is used.
 
@@ -113,8 +115,8 @@ Go 1.26+, CGO, and the target C compiler are required. Release packages must be 
 ```bash
 make test
 make vet
-make package VERSION=0.5.5 GOOS=linux GOARCH=amd64
-make package VERSION=0.5.5 GOOS=linux GOARCH=arm64
+make package VERSION=0.5.6 GOOS=linux GOARCH=amd64
+make package VERSION=0.5.6 GOOS=linux GOARCH=arm64
 ```
 
 `make package` performs a real `dlopen(RTLD_NOW)` and required-symbol check for the target architecture before creating a release ZIP. Linux AMD64 uses the native C toolchain. Linux ARM64 uses `aarch64-linux-gnu-gcc` with `qemu-aarch64-static`; when QEMU is absent, the build downloads and extracts it from the configured apt source into a temporary directory. `SKIP_PLUGIN_LOAD_CHECK=1` is only for local diagnostic builds and must not be used for releases.

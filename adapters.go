@@ -894,6 +894,10 @@ func queryNewAPIAccountQuantity(ctx context.Context, callbackID string, candidat
 	if data == nil {
 		return nil, fmt.Errorf("NewAPI account response contains no data")
 	}
+	return newAPIAccountQuantityFromData(data, quotaStatus)
+}
+
+func newAPIAccountQuantityFromData(data map[string]any, quotaStatus newAPIQuotaStatus) (*quotaQuantity, error) {
 	rawRemaining := stringValue(data, "quota", "remaining", "available")
 	rawUsed := stringValue(data, "used_quota", "used", "usage")
 	if rawRemaining == "" {
@@ -906,9 +910,10 @@ func queryNewAPIAccountQuantity(ctx context.Context, callbackID string, candidat
 		total = newAPIAmount(strconv.FormatFloat(remaining+used, 'f', -1, 64), quotaStatus)
 	}
 	return &quotaQuantity{
-		Name:      "NewAPI 账户总额",
+		Name:      "NewAPI 账户余额",
 		Scope:     "account",
 		Source:    "/api/user/self",
+		Display:   "remaining",
 		Remaining: newAPIAmount(rawRemaining, quotaStatus),
 		Total:     total,
 		Used:      newAPIAmount(rawUsed, quotaStatus),

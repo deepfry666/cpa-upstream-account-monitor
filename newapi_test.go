@@ -34,6 +34,22 @@ func TestNewAPISnapshotKeepsAccountQuotaWhenKeyQueryFails(t *testing.T) {
 	}
 }
 
+func TestNewAPIAccountQuantityShowsOnlyRemainingBalance(t *testing.T) {
+	quantity, err := newAPIAccountQuantityFromData(map[string]any{
+		"quota":      495.921488,
+		"used_quota": 504.078512,
+	}, newAPIQuotaStatus{QuotaPerUnit: 1, DisplayType: "CNY"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if quantity.Name != "NewAPI 账户余额" || quantity.Display != "remaining" {
+		t.Fatalf("quantity display = %+v, want remaining-only account balance", quantity)
+	}
+	if quantity.Remaining != "495.921488" || quantity.Total != "1000" || quantity.Used != "504.078512" || quantity.Unit != "CNY" {
+		t.Fatalf("quantity values = %+v", quantity)
+	}
+}
+
 func TestNewAPISnapshotKeepsKeyQuotaWhenAccountQueryFails(t *testing.T) {
 	body := []byte(`{"data":{"total_granted":100,"total_used":40,"total_available":60}}`)
 	snapshot, err := newAPISnapshotFromParts(

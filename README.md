@@ -4,7 +4,7 @@
 
 “上游账户监控”是 [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) / CPA Manager Plus 的原生动态库插件。它从 CPA 配置和宿主凭证中独立发现上游账户，查询余额、额度、用量和健康状态，并提供中文优先的响应式管理页和只读机器接口。
 
-当前版本：`0.5.5`。插件技术 ID 和动态库名保持为 `upstream-monitor`，CPAMP 挂载入口不变。
+当前版本：`0.5.6`。插件技术 ID 和动态库名保持为 `upstream-monitor`，CPAMP 挂载入口不变。
 
 ## 核心行为
 
@@ -36,6 +36,8 @@ OpenAI 兼容中转 / Codex API Key
 协议中显式声明的百分比按百分比处理，比例按 `0–1` 处理；不会通过“数值是否小于等于 1”猜测单位。`expires_at` 只表示套餐或凭证到期，`reset_at` 只接收协议明确给出的周期重置时间。窗口 `used > total` 时保留真实已用量和超额量，界面进度条限制为 100%，但告警仍按超额状态判断。
 
 NewAPI 的当前 Key 配额和 PAT 整账户查询互不短路：PAT 未配置、失效或账户查询失败时，有效的 Key 结果仍保留；反之亦然。PAT 只用于账户查询，不会把推理 Key 当作管理凭据。
+
+NewAPI 账户查询返回的是当前剩余额度，历史累计发放总额只作为内部数据保留，不在主指标或配额明细中显示。账户行直接显示实时剩余金额，避免把“历史总充值”误认为当前可用总额。
 
 Command Code 的 5 小时和一周窗口来自服务端 `windowLimits`；月度窗口由同账单周期的 `totalMonthlyCredits` 与 `monthlyCredits` 换算已用和剩余，重置时间取订阅的 `currentPeriodEnd`。只有服务端提供这些月度字段时才生成一月窗口，不会用硬编码套餐总额补齐。
 
@@ -171,9 +173,9 @@ GET /v0/resource/plugins/upstream-monitor/api/v1/report
 ```bash
 make test
 make vet
-make package VERSION=0.5.5 GOOS=linux GOARCH=amd64
-make package VERSION=0.5.5 GOOS=linux GOARCH=arm64
-make checksums VERSION=0.5.5 GOOS=linux GOARCH=amd64
+make package VERSION=0.5.6 GOOS=linux GOARCH=amd64
+make package VERSION=0.5.6 GOOS=linux GOARCH=arm64
+make checksums VERSION=0.5.6 GOOS=linux GOARCH=amd64
 ```
 
 `make package` 会先对目标架构动态库执行真实 `dlopen(RTLD_NOW)` 和必需导出符号检查，失败时不会生成发布 ZIP。Linux AMD64 使用本机 C 工具链；Linux ARM64 使用 `aarch64-linux-gnu-gcc` 和 `qemu-aarch64-static`，缺少 QEMU 时从当前 apt 软件源下载并解包到临时目录。`SKIP_PLUGIN_LOAD_CHECK=1` 只用于本机诊断构建，不能用于正式发布。

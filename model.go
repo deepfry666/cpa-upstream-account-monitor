@@ -51,6 +51,7 @@ type quotaQuantity struct {
 	Name      string     `json:"name"`
 	Scope     string     `json:"scope,omitempty"`
 	Source    string     `json:"source,omitempty"`
+	Display   string     `json:"display,omitempty"`
 	Unlimited bool       `json:"unlimited,omitempty"`
 	Remaining string     `json:"remaining,omitempty"`
 	Total     string     `json:"total,omitempty"`
