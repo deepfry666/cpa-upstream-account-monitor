@@ -4,7 +4,7 @@
 
 “上游账户监控”是 [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) / CPA Manager Plus 的原生动态库插件。它从 CPA 配置和宿主凭证中独立发现上游账户，查询余额、额度、用量和健康状态，并提供中文优先的响应式管理页和只读机器接口。
 
-当前版本：`0.5.8`。插件技术 ID 和动态库名保持为 `upstream-monitor`，CPAMP 挂载入口不变。
+当前版本：`0.5.9`。插件技术 ID 和动态库名保持为 `upstream-monitor`，CPAMP 挂载入口不变。
 
 ## 核心行为
 
@@ -53,7 +53,7 @@ Command Code 的 5 小时和一周窗口来自服务端 `windowLimits`；月度�
 
 快照缓存使用独立格式版本 `2`，偏好文件使用独立格式版本 `2`。两者不依赖插件版本号判断格式。
 
-- 缓存保存活动快照和每账户最多 100 条历史，使用同目录临时文件、文件同步、原子重命名和目录同步。
+- 缓存保存活动快照和每账户最多 50 条历史，使用同目录临时文件、文件同步、原子重命名和目录同步。
 - 首次失败会创建错误账户行并记录 `last_attempt_at`；后续失败保留上次成功指标，同时保留旧 `last_success_at`，失败时间和数据来源时间含义分开。
 - 未知未来格式、损坏 JSON 或身份不一致会在内存替换前失败，原文件不会被静默覆盖。
 - CPA 目录短暂读取失败时保留上次成功目录并标记同步失败，不会把失败当成所有账户被删除。
@@ -175,9 +175,9 @@ GET /v0/resource/plugins/upstream-monitor/api/v1/report
 ```bash
 make test
 make vet
-make package VERSION=0.5.8 GOOS=linux GOARCH=amd64
-make package VERSION=0.5.8 GOOS=linux GOARCH=arm64
-make checksums VERSION=0.5.8 GOOS=linux GOARCH=amd64
+make package VERSION=0.5.9 GOOS=linux GOARCH=amd64
+make package VERSION=0.5.9 GOOS=linux GOARCH=arm64
+make checksums VERSION=0.5.9 GOOS=linux GOARCH=amd64
 ```
 
 `make package` 会先对目标架构动态库执行真实 `dlopen(RTLD_NOW)` 和必需导出符号检查，失败时不会生成发布 ZIP。Linux AMD64 使用本机 C 工具链；Linux ARM64 使用 `aarch64-linux-gnu-gcc` 和 `qemu-aarch64-static`，缺少 QEMU 时从当前 apt 软件源下载并解包到临时目录。`SKIP_PLUGIN_LOAD_CHECK=1` 只用于本机诊断构建，不能用于正式发布。

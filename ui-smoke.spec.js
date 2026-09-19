@@ -7,7 +7,7 @@ const uiURL = `${uiBaseURL}/ui.html`;
 const iframeHarnessURL = `${uiBaseURL}/__upstream-monitor-iframe-harness`;
 
 const uiState = {
-  version: "0.5.8",
+  version: "0.5.9",
   generated_at: "2026-09-18T08:00:00Z",
   refreshing: false,
   providers: [

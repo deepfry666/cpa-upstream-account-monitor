@@ -4,7 +4,7 @@
 
 A native CLIProxyAPI / CPA Manager Plus plugin for discovering upstream accounts from CPA configuration and host credentials, then monitoring balances, quota windows, usage, and health. It includes a Chinese-first responsive management UI and read-only endpoints for Hermes.
 
-Current version: `0.5.8`. The technical plugin ID and shared-library name remain `upstream-monitor`.
+Current version: `0.5.9`. The technical plugin ID and shared-library name remain `upstream-monitor`.
 
 ## Behavior
 
@@ -44,7 +44,7 @@ The currently available official API exposes verifiable subscription quota but n
 
 ## Cache, Recovery, And Security
 
-The snapshot cache and preferences use independent format version `2`. Writes use a same-directory temporary file, file sync, atomic rename, and directory sync. The cache keeps active snapshots and up to 100 history entries per account.
+The snapshot cache and preferences use independent format version `2`. Writes use a same-directory temporary file, file sync, atomic rename, and directory sync. The cache keeps active snapshots and up to 50 history entries per account.
 
 The first failed query creates an error row with `last_attempt_at`. Later failures retain the last successful values and `last_success_at` while recording a new attempt time. Corrupt, unsupported, or identity-mismatched files are rejected before memory is replaced, so the original file is not silently overwritten.
 
@@ -117,8 +117,8 @@ Go 1.26+, CGO, and the target C compiler are required. Release packages must be 
 ```bash
 make test
 make vet
-make package VERSION=0.5.8 GOOS=linux GOARCH=amd64
-make package VERSION=0.5.8 GOOS=linux GOARCH=arm64
+make package VERSION=0.5.9 GOOS=linux GOARCH=amd64
+make package VERSION=0.5.9 GOOS=linux GOARCH=arm64
 ```
 
 `make package` performs a real `dlopen(RTLD_NOW)` and required-symbol check for the target architecture before creating a release ZIP. Linux AMD64 uses the native C toolchain. Linux ARM64 uses `aarch64-linux-gnu-gcc` with `qemu-aarch64-static`; when QEMU is absent, the build downloads and extracts it from the configured apt source into a temporary directory. `SKIP_PLUGIN_LOAD_CHECK=1` is only for local diagnostic builds and must not be used for releases.

@@ -48,6 +48,24 @@ func TestSnapshotStoreSavesVersionedCacheAndReloadsHistory(t *testing.T) {
 	}
 }
 
+func TestSnapshotStoreCapsHistoryPerAccountAtFifty(t *testing.T) {
+	store := newSnapshotStore()
+	for index := 0; index < 60; index++ {
+		store.put(accountSnapshot{
+			AccountID: "acct_cap",
+			Status:    statusOK,
+			CheckedAt: time.Unix(int64(index), 0).UTC(),
+		})
+	}
+	history := store.historyFor("acct_cap", 100)
+	if len(history) != 50 {
+		t.Fatalf("history length = %d, want 50", len(history))
+	}
+	if history[0].CheckedAt.Unix() != 59 || history[49].CheckedAt.Unix() != 10 {
+		t.Fatalf("history bounds = %s..%s, want 59..10", history[0].CheckedAt, history[49].CheckedAt)
+	}
+}
+
 func TestSnapshotStoreRejectsUnknownFutureVersionWithoutChangingMemory(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "cache.json")
@@ -267,7 +285,7 @@ func TestSnapshotStoreMigrationKeepsNewerLegacyActiveSnapshot(t *testing.T) {
 	}
 }
 
-func TestSnapshotStoreMigrationCapsCombinedHistoryAtOneHundred(t *testing.T) {
+func TestSnapshotStoreMigrationCapsCombinedHistoryAtFifty(t *testing.T) {
 	store := newSnapshotStore()
 	legacyHistory := make([]accountSnapshot, 80)
 	stableHistory := make([]accountSnapshot, 80)
@@ -296,11 +314,11 @@ func TestSnapshotStoreMigrationCapsCombinedHistoryAtOneHundred(t *testing.T) {
 		t.Fatal("legacy account was not migrated")
 	}
 	history := store.historyFor("acct_stable", 200)
-	if len(history) != 100 {
-		t.Fatalf("migrated history length = %d, want 100", len(history))
+	if len(history) != 50 {
+		t.Fatalf("migrated history length = %d, want 50", len(history))
 	}
-	if history[0].CheckedAt.Unix() != 179 || history[99].CheckedAt.Unix() != 60 {
-		t.Fatalf("migrated history bounds = %s..%s, want 179..60", history[0].CheckedAt, history[99].CheckedAt)
+	if history[0].CheckedAt.Unix() != 179 || history[49].CheckedAt.Unix() != 130 {
+		t.Fatalf("migrated history bounds = %s..%s, want 179..130", history[0].CheckedAt, history[49].CheckedAt)
 	}
 }
 

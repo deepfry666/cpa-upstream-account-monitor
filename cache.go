@@ -11,6 +11,7 @@ import (
 )
 
 const snapshotCacheFormatVersion = 2
+const snapshotHistoryLimit = 50
 
 type persistedSnapshotCache struct {
 	FormatVersion int                          `json:"format_version"`
@@ -41,8 +42,8 @@ func (s *snapshotStore) put(snapshot accountSnapshot) {
 	s.mu.Lock()
 	s.entries[snapshot.AccountID] = snapshot
 	s.history[snapshot.AccountID] = append([]accountSnapshot{snapshot}, s.history[snapshot.AccountID]...)
-	if len(s.history[snapshot.AccountID]) > 100 {
-		s.history[snapshot.AccountID] = s.history[snapshot.AccountID][:100]
+	if len(s.history[snapshot.AccountID]) > snapshotHistoryLimit {
+		s.history[snapshot.AccountID] = s.history[snapshot.AccountID][:snapshotHistoryLimit]
 	}
 	s.mu.Unlock()
 }
@@ -91,8 +92,8 @@ func (s *snapshotStore) historyFor(id string, limit int) []accountSnapshot {
 	if s == nil || id == "" {
 		return nil
 	}
-	if limit <= 0 || limit > 100 {
-		limit = 100
+	if limit <= 0 || limit > snapshotHistoryLimit {
+		limit = snapshotHistoryLimit
 	}
 	s.mu.RLock()
 	items := s.history[id]
@@ -201,8 +202,8 @@ func (s *snapshotStore) migrateAccount(oldID, newID string) bool {
 		seen[key] = struct{}{}
 		history = append(history, snapshot)
 	}
-	if len(history) > 100 {
-		history = history[:100]
+	if len(history) > snapshotHistoryLimit {
+		history = history[:snapshotHistoryLimit]
 	}
 	s.history[newID] = history
 	s.migrationRevision++
@@ -358,8 +359,8 @@ func validateSnapshotEntries(values map[string]accountSnapshot) (map[string]acco
 func validateSnapshotHistory(values map[string][]accountSnapshot) (map[string][]accountSnapshot, error) {
 	history := make(map[string][]accountSnapshot, len(values))
 	for id, snapshots := range values {
-		if len(snapshots) > 100 {
-			snapshots = snapshots[:100]
+		if len(snapshots) > snapshotHistoryLimit {
+			snapshots = snapshots[:snapshotHistoryLimit]
 		}
 		normalized := make([]accountSnapshot, 0, len(snapshots))
 		for _, snapshot := range snapshots {

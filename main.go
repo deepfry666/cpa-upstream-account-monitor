@@ -79,7 +79,7 @@ import (
 const pluginName = "upstream-monitor"
 const repositoryURL = "https://github.com/deepfry666/cpa-upstream-account-monitor"
 
-var pluginVersion = "0.5.8"
+var pluginVersion = "0.5.9"
 
 type envelope struct {
 	OK     bool            `json:"ok"`
@@ -1118,8 +1118,8 @@ func handleHistoryRoute(req managementRequest) ([]byte, error) {
 	limit := 50
 	if raw := queryValue(req.Query, "limit"); raw != "" {
 		parsed := 0
-		if _, err := fmt.Sscanf(raw, "%d", &parsed); err != nil || parsed < 1 || parsed > 100 {
-			return jsonResponse(http.StatusBadRequest, map[string]string{"error": "limit must be between 1 and 100"})
+		if _, err := fmt.Sscanf(raw, "%d", &parsed); err != nil || parsed < 1 || parsed > snapshotHistoryLimit {
+			return jsonResponse(http.StatusBadRequest, map[string]string{"error": fmt.Sprintf("limit must be between 1 and %d", snapshotHistoryLimit)})
 		}
 		limit = parsed
 	}
