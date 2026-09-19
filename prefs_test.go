@@ -56,6 +56,50 @@ func TestMonitorPrefsBatchPATActionsAreExplicit(t *testing.T) {
 	}
 }
 
+func TestDismissedAlertsPersistAndClearAfterResolution(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "prefs.json")
+	prefs := newMonitorPrefs()
+	if err := prefs.configure(path); err != nil {
+		t.Fatal(err)
+	}
+	const alertID = "alert_test_123"
+	if err := prefs.dismissAlert(alertID); err != nil {
+		t.Fatal(err)
+	}
+	if !prefs.dismissedAlerts()[alertID] {
+		t.Fatalf("dismissed alerts = %+v, want %q", prefs.dismissedAlerts(), alertID)
+	}
+
+	reloaded := newMonitorPrefs()
+	if err := reloaded.configure(path); err != nil {
+		t.Fatal(err)
+	}
+	if !reloaded.dismissedAlerts()[alertID] {
+		t.Fatalf("reloaded dismissals = %+v, want %q", reloaded.dismissedAlerts(), alertID)
+	}
+	if err := reloaded.reconcileDismissedAlerts(map[string]bool{alertID: true}); err != nil {
+		t.Fatal(err)
+	}
+	if !reloaded.dismissedAlerts()[alertID] {
+		t.Fatal("active alert dismissal was cleared")
+	}
+	if err := reloaded.reconcileDismissedAlerts(map[string]bool{}); err != nil {
+		t.Fatal(err)
+	}
+	if reloaded.dismissedAlerts()[alertID] {
+		t.Fatal("resolved alert dismissal was retained")
+	}
+
+	afterResolution := newMonitorPrefs()
+	if err := afterResolution.configure(path); err != nil {
+		t.Fatal(err)
+	}
+	if afterResolution.dismissedAlerts()[alertID] {
+		t.Fatal("resolved dismissal was not persisted")
+	}
+}
+
 func TestMonitorPrefsBatchFailureDoesNotPartiallyCommit(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "prefs.json")

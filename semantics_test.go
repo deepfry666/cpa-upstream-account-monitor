@@ -443,6 +443,36 @@ func TestAccountAlertsUseStableIdentityIDs(t *testing.T) {
 	}
 }
 
+func TestDismissedAlertStaysHiddenUntilItResolvesThenReturns(t *testing.T) {
+	useTestPluginState(t, "")
+	account := accountSnapshot{
+		AccountID:   "acct-dismiss",
+		AccountName: "Dismiss Test",
+		Status:      statusOK,
+		Stale:       true,
+	}
+	alert := alertsForAccount(account)[0]
+	if err := state.prefs.dismissAlert(alert.ID); err != nil {
+		t.Fatal(err)
+	}
+	hidden := filterDismissedAlerts(buildReportFromAccounts([]accountSnapshot{account}))
+	if len(hidden.Alerts) != 0 {
+		t.Fatalf("dismissed alert remained visible: %+v", hidden.Alerts)
+	}
+
+	healthy := account
+	healthy.Stale = false
+	_ = filterDismissedAlerts(buildReportFromAccounts([]accountSnapshot{healthy}))
+	if len(state.prefs.dismissedAlerts()) != 0 {
+		t.Fatalf("resolved alert dismissal was retained: %+v", state.prefs.dismissedAlerts())
+	}
+
+	visible := filterDismissedAlerts(buildReportFromAccounts([]accountSnapshot{account}))
+	if len(visible.Alerts) != 1 || visible.Alerts[0].ID != alert.ID {
+		t.Fatalf("recurring alert was not restored: %+v", visible.Alerts)
+	}
+}
+
 func TestQuotaAlertIdentifiesLowWindowAndThreshold(t *testing.T) {
 	state.mu.Lock()
 	previous := state.cfg.Thresholds

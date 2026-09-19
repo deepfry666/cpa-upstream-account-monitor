@@ -7,7 +7,7 @@ const uiURL = `${uiBaseURL}/ui.html`;
 const iframeHarnessURL = `${uiBaseURL}/__upstream-monitor-iframe-harness`;
 
 const uiState = {
-  version: "0.5.4",
+  version: "0.5.5",
   generated_at: "2026-09-18T08:00:00Z",
   refreshing: false,
   providers: [
@@ -994,6 +994,57 @@ test("clicking an alert locates its metric and offers filter recovery", async ({
       .getByRole("button", { name: "额度", exact: true })
       .getAttribute("aria-pressed"),
   ).resolves.toBe("true");
+});
+
+test("dismissing an alert hides it until the problem returns", async ({ page }) => {
+  const state = structuredClone(uiState);
+  state.report.alerts = [
+    {
+      id: "alert-dismiss",
+      level: "warning",
+      account_id: "cc-1",
+      type: "stale",
+      message: "账户快照已过期",
+    },
+  ];
+  let dismissedBody = null;
+  await page.unroute("**/v0/management/upstream-monitor/state");
+  await page.route(
+    "**/v0/management/upstream-monitor/state",
+    async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(state),
+      });
+    },
+  );
+  await page.route(
+    "**/v0/management/upstream-monitor/alerts/dismiss",
+    async (route) => {
+      dismissedBody = route.request().postDataJSON();
+      const dismissedState = structuredClone(state);
+      dismissedState.report.alerts = [];
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(dismissedState),
+      });
+    },
+  );
+
+  await page.goto(uiURL);
+  await page
+    .getByRole("button", {
+      name: "关闭 Command Code GOAT 的告警：账户快照已过期",
+    })
+    .click();
+
+  await expect.poll(() => dismissedBody?.alert_id).toBe("alert-dismiss");
+  await expect(page.locator("#alerts-panel")).toBeHidden();
+  await expect(page.locator("#status-line")).toContainText(
+    "已关闭告警；问题再次出现时会重新提醒",
+  );
 });
 
 test("clicking an alert for an archived account explains the fallback", async ({

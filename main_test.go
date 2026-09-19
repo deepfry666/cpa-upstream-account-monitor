@@ -1459,6 +1459,49 @@ func TestRefreshAccountsDiscardsSnapshotAfterMonitoringCanceled(t *testing.T) {
 	}
 }
 
+func TestAlertDismissRouteHidesAlertUntilResolution(t *testing.T) {
+	useTestPluginState(t, "")
+	account := accountSnapshot{
+		AccountID:     "acct-alert-route",
+		AccountName:   "Alert Route",
+		Status:        statusOK,
+		Stale:         true,
+		LastAttemptAt: nowForTest(),
+	}
+	state.store.put(account)
+	alert := alertsForAccount(account)[0]
+	body, err := json.Marshal(map[string]string{"alert_id": alert.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := handleAlertDismissRoute(managementRequest{
+		Method: http.MethodPost,
+		Path:   "/v0/management/upstream-monitor/alerts/dismiss",
+		Body:   body,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var response monitorUIState
+	if err := json.Unmarshal(raw, &response); err != nil {
+		t.Fatal(err)
+	}
+	if len(response.Report.Alerts) != 0 {
+		t.Fatalf("dismissed alert was returned by route: %+v", response.Report.Alerts)
+	}
+
+	healthy := account
+	healthy.Stale = false
+	state.store.put(healthy)
+	next := buildReport()
+	if len(next.Alerts) != 0 {
+		t.Fatalf("resolved alert unexpectedly returned: %+v", next.Alerts)
+	}
+	if len(state.prefs.dismissedAlerts()) != 0 {
+		t.Fatalf("resolved alert dismissal was retained: %+v", state.prefs.dismissedAlerts())
+	}
+}
+
 func TestRefreshAccountsCancelsSlowResponseBodyAtAccountBudget(t *testing.T) {
 	requestCanceled := make(chan struct{}, 1)
 	relay := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
@@ -1782,8 +1825,8 @@ func TestManagementRegistrationUsesExactRoutes(t *testing.T) {
 	if err := json.Unmarshal(envelopeValue.Result, &registrationValue); err != nil {
 		t.Fatal(err)
 	}
-	if len(registrationValue.Routes) != 9 {
-		t.Fatalf("routes = %d, want 9", len(registrationValue.Routes))
+	if len(registrationValue.Routes) != 10 {
+		t.Fatalf("routes = %d, want 10", len(registrationValue.Routes))
 	}
 	for _, route := range registrationValue.Routes {
 		if route.Path == "" || route.Path[0] != '/' {
@@ -1802,6 +1845,9 @@ func TestManagementRegistrationUsesExactRoutes(t *testing.T) {
 			continue
 		}
 		if route.Method == http.MethodPut && route.Path == "/upstream-monitor/config" {
+			continue
+		}
+		if route.Method == http.MethodPost && route.Path == "/upstream-monitor/alerts/dismiss" {
 			continue
 		}
 		if route.Method == http.MethodGet && route.Path == "/upstream-monitor/state" {

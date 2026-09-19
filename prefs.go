@@ -31,19 +31,20 @@ const (
 )
 
 type persistedMonitorPrefs struct {
-	FormatVersion  int                          `json:"format_version"`
-	Revision       int64                        `json:"revision"`
-	Known          map[string]bool              `json:"known"`
-	Monitored      map[string]bool              `json:"monitored"`
-	Adapters       map[string]string            `json:"adapters"`
-	PATs           map[string]string            `json:"management_pats"`
-	Names          map[string]string            `json:"names"`
-	AccountOrder   []string                     `json:"account_order,omitempty"`
-	FirstSeen      map[string]time.Time         `json:"first_seen,omitempty"`
-	Identities     map[string]persistedIdentity `json:"identities,omitempty"`
-	RelinkRequired map[string]bool              `json:"relink_required,omitempty"`
-	QueryRevisions map[string]int64             `json:"query_revisions,omitempty"`
-	Thresholds     *thresholdConfig             `json:"thresholds,omitempty"`
+	FormatVersion   int                          `json:"format_version"`
+	Revision        int64                        `json:"revision"`
+	Known           map[string]bool              `json:"known"`
+	Monitored       map[string]bool              `json:"monitored"`
+	Adapters        map[string]string            `json:"adapters"`
+	PATs            map[string]string            `json:"management_pats"`
+	Names           map[string]string            `json:"names"`
+	AccountOrder    []string                     `json:"account_order,omitempty"`
+	FirstSeen       map[string]time.Time         `json:"first_seen,omitempty"`
+	Identities      map[string]persistedIdentity `json:"identities,omitempty"`
+	RelinkRequired  map[string]bool              `json:"relink_required,omitempty"`
+	QueryRevisions  map[string]int64             `json:"query_revisions,omitempty"`
+	DismissedAlerts map[string]bool              `json:"dismissed_alerts,omitempty"`
+	Thresholds      *thresholdConfig             `json:"thresholds,omitempty"`
 }
 
 type persistedIdentity struct {
@@ -105,16 +106,17 @@ func newMonitorPrefs() *monitorPrefs {
 
 func newPersistedMonitorPrefs() persistedMonitorPrefs {
 	return persistedMonitorPrefs{
-		FormatVersion:  monitorPrefsFormatVersion,
-		Known:          map[string]bool{},
-		Monitored:      map[string]bool{},
-		Adapters:       map[string]string{},
-		PATs:           map[string]string{},
-		Names:          map[string]string{},
-		FirstSeen:      map[string]time.Time{},
-		Identities:     map[string]persistedIdentity{},
-		RelinkRequired: map[string]bool{},
-		QueryRevisions: map[string]int64{},
+		FormatVersion:   monitorPrefsFormatVersion,
+		Known:           map[string]bool{},
+		Monitored:       map[string]bool{},
+		Adapters:        map[string]string{},
+		PATs:            map[string]string{},
+		Names:           map[string]string{},
+		FirstSeen:       map[string]time.Time{},
+		Identities:      map[string]persistedIdentity{},
+		RelinkRequired:  map[string]bool{},
+		QueryRevisions:  map[string]int64{},
+		DismissedAlerts: map[string]bool{},
 	}
 }
 
@@ -214,6 +216,9 @@ func normalizePersistedPrefs(data *persistedMonitorPrefs) {
 	if data.QueryRevisions == nil {
 		data.QueryRevisions = map[string]int64{}
 	}
+	if data.DismissedAlerts == nil {
+		data.DismissedAlerts = map[string]bool{}
+	}
 	seenOrder := make(map[string]struct{}, len(data.AccountOrder))
 	order := data.AccountOrder[:0]
 	for _, id := range data.AccountOrder {
@@ -232,18 +237,19 @@ func normalizePersistedPrefs(data *persistedMonitorPrefs) {
 
 func clonePersistedPrefs(data persistedMonitorPrefs) persistedMonitorPrefs {
 	clone := persistedMonitorPrefs{
-		FormatVersion:  data.FormatVersion,
-		Revision:       data.Revision,
-		Known:          cloneBoolMap(data.Known),
-		Monitored:      cloneBoolMap(data.Monitored),
-		Adapters:       cloneStringMap(data.Adapters),
-		PATs:           cloneStringMap(data.PATs),
-		Names:          cloneStringMap(data.Names),
-		AccountOrder:   append([]string(nil), data.AccountOrder...),
-		FirstSeen:      cloneTimeMap(data.FirstSeen),
-		Identities:     cloneIdentityMap(data.Identities),
-		RelinkRequired: cloneBoolMap(data.RelinkRequired),
-		QueryRevisions: cloneInt64Map(data.QueryRevisions),
+		FormatVersion:   data.FormatVersion,
+		Revision:        data.Revision,
+		Known:           cloneBoolMap(data.Known),
+		Monitored:       cloneBoolMap(data.Monitored),
+		Adapters:        cloneStringMap(data.Adapters),
+		PATs:            cloneStringMap(data.PATs),
+		Names:           cloneStringMap(data.Names),
+		AccountOrder:    append([]string(nil), data.AccountOrder...),
+		FirstSeen:       cloneTimeMap(data.FirstSeen),
+		Identities:      cloneIdentityMap(data.Identities),
+		RelinkRequired:  cloneBoolMap(data.RelinkRequired),
+		QueryRevisions:  cloneInt64Map(data.QueryRevisions),
+		DismissedAlerts: cloneBoolMap(data.DismissedAlerts),
 	}
 	if data.Thresholds != nil {
 		thresholds := *data.Thresholds
@@ -400,6 +406,45 @@ func (p *monitorPrefs) thresholds(fallback thresholdConfig) thresholdConfig {
 	out.CashByCurrency = cloneCashThresholdMap(p.data.Thresholds.CashByCurrency)
 	out.CashByAccount = cloneCashThresholdMap(p.data.Thresholds.CashByAccount)
 	return out
+}
+
+func (p *monitorPrefs) dismissedAlerts() map[string]bool {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return cloneBoolMap(p.data.DismissedAlerts)
+}
+
+func (p *monitorPrefs) dismissAlert(id string) error {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return fmt.Errorf("alert id is required")
+	}
+	if len(id) > 128 {
+		return fmt.Errorf("alert id is too long")
+	}
+	_, err := p.commit(func(data *persistedMonitorPrefs) (bool, error) {
+		if data.DismissedAlerts[id] {
+			return false, nil
+		}
+		data.DismissedAlerts[id] = true
+		return true, nil
+	})
+	return err
+}
+
+func (p *monitorPrefs) reconcileDismissedAlerts(active map[string]bool) error {
+	_, err := p.commit(func(data *persistedMonitorPrefs) (bool, error) {
+		changed := false
+		for id := range data.DismissedAlerts {
+			if active[id] {
+				continue
+			}
+			delete(data.DismissedAlerts, id)
+			changed = true
+		}
+		return changed, nil
+	})
+	return err
 }
 
 func (p *monitorPrefs) updateThresholdsAtRevision(expected *int64, thresholds thresholdConfig) (int64, error) {

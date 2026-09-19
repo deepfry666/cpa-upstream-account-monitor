@@ -439,6 +439,25 @@
         font-size: 11px;
         font-weight: 700;
       }
+      .alert-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .alert-dismiss {
+        border: 0;
+        background: transparent;
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 700;
+      }
+      .alert-dismiss:hover {
+        color: var(--ink);
+      }
+      .alert-actions button:disabled {
+        cursor: wait;
+        opacity: 0.55;
+      }
       .toolbar {
         display: flex;
         align-items: center;
@@ -2440,9 +2459,44 @@
           link.type = "button";
           link.textContent = "查看";
           link.onclick = () => navigateToAlert(alert);
-          row.append(dot, main, link);
+          const dismiss = document.createElement("button");
+          dismiss.className = "alert-dismiss";
+          dismiss.type = "button";
+          dismiss.textContent = "关闭";
+          dismiss.setAttribute(
+            "aria-label",
+            `关闭 ${account?.name || alert.account_id || "未知账户"} 的告警：${alert.message || alert.type || "需要检查"}`,
+          );
+          dismiss.onclick = () => dismissAlert(alert, dismiss);
+          const actions = document.createElement("div");
+          actions.className = "alert-actions";
+          actions.append(link, dismiss);
+          row.append(dot, main, actions);
           list.append(row);
         });
+      }
+      async function dismissAlert(alert, button) {
+        if (!alert?.id) return;
+        button.disabled = true;
+        statusLine.className = "status-text";
+        statusLine.textContent = "正在关闭告警…";
+        try {
+          uiState = await api(
+            "/v0/management/upstream-monitor/alerts/dismiss",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ alert_id: alert.id }),
+            },
+          );
+          updateSummary();
+          statusLine.className = "status-text";
+          statusLine.textContent = "已关闭告警；问题再次出现时会重新提醒";
+        } catch (error) {
+          statusLine.className = "status-text error";
+          statusLine.textContent = error.message || "关闭告警失败";
+          button.disabled = false;
+        }
       }
       function definition(parent, label, value, alertTarget = "") {
         const cell = document.createElement("div");

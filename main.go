@@ -79,7 +79,7 @@ import (
 const pluginName = "upstream-monitor"
 const repositoryURL = "https://github.com/deepfry666/cpa-upstream-account-monitor"
 
-var pluginVersion = "0.5.4"
+var pluginVersion = "0.5.5"
 
 type envelope struct {
 	OK     bool            `json:"ok"`
@@ -393,6 +393,7 @@ func handleMethod(method string, request []byte) ([]byte, error) {
 				{Method: http.MethodGet, Path: "/upstream-monitor/refresh"},
 				{Method: http.MethodGet, Path: "/upstream-monitor/config"},
 				{Method: http.MethodPut, Path: "/upstream-monitor/config"},
+				{Method: http.MethodPost, Path: "/upstream-monitor/alerts/dismiss"},
 				{Method: http.MethodGet, Path: "/upstream-monitor/state"},
 				{Method: http.MethodPut, Path: "/upstream-monitor/providers"},
 				{Method: http.MethodPost, Path: "/upstream-monitor/cleanup"},
@@ -660,6 +661,8 @@ func handleManagement(raw []byte) ([]byte, error) {
 		return handleHistoryRoute(req)
 	case req.Path == "/v0/management/upstream-monitor/config":
 		return handleConfigRoute(req)
+	case req.Path == "/v0/management/upstream-monitor/alerts/dismiss":
+		return handleAlertDismissRoute(req)
 	case req.Path == "/v0/resource/plugins/upstream-monitor/ui":
 		return htmlResponse(http.StatusOK, uiHTML)
 	default:
@@ -1989,7 +1992,54 @@ func buildReport() report {
 		}
 		accounts = filtered
 	}
-	return buildReportFromAccounts(accounts)
+	return filterDismissedAlerts(buildReportFromAccounts(accounts))
+}
+
+func filterDismissedAlerts(out report) report {
+	if state.prefs == nil {
+		return out
+	}
+	active := make(map[string]bool, len(out.Alerts))
+	for _, alert := range out.Alerts {
+		if strings.TrimSpace(alert.ID) != "" {
+			active[alert.ID] = true
+		}
+	}
+	_ = state.prefs.reconcileDismissedAlerts(active)
+	dismissed := state.prefs.dismissedAlerts()
+	if len(dismissed) == 0 {
+		return out
+	}
+	filtered := out.Alerts[:0]
+	for _, alert := range out.Alerts {
+		if !dismissed[alert.ID] {
+			filtered = append(filtered, alert)
+		}
+	}
+	out.Alerts = filtered
+	return out
+}
+
+type alertDismissRequest struct {
+	AlertID string `json:"alert_id"`
+}
+
+func handleAlertDismissRoute(req managementRequest) ([]byte, error) {
+	if req.Method != http.MethodPost {
+		return jsonResponse(http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
+	}
+	var request alertDismissRequest
+	if err := json.Unmarshal(req.Body, &request); err != nil {
+		return jsonResponse(http.StatusBadRequest, map[string]string{"error": "invalid alert dismissal"})
+	}
+	if err := state.prefs.dismissAlert(request.AlertID); err != nil {
+		return jsonResponse(http.StatusBadRequest, map[string]string{"error": err.Error()})
+	}
+	value, err := buildMonitorUIState(req.HostCallbackID)
+	if err != nil {
+		return jsonResponse(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return jsonResponse(http.StatusOK, value)
 }
 
 func buildReportFromAccounts(accounts []accountSnapshot) report {
