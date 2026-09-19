@@ -957,6 +957,16 @@ func applySub2APIBillingResponse(snapshot accountSnapshot, response hostHTTPResp
 		markSectionError(&snapshot, "billing", "UPSTREAM_REQUEST_FAILED", queryErr.Error())
 		return snapshot
 	}
+	if response.StatusCode == http.StatusNotFound || response.StatusCode == http.StatusMethodNotAllowed {
+		if snapshot.Sections == nil {
+			snapshot.Sections = map[string]sectionStatus{}
+		}
+		snapshot.Sections["billing"] = sectionStatus{
+			Status:  "unsupported",
+			Message: fmt.Sprintf("该 Sub2API 实例未提供计费详情接口（HTTP %d），余额与用量查询不受影响。", response.StatusCode),
+		}
+		return snapshot
+	}
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		markSectionError(&snapshot, "billing", fmt.Sprintf("UPSTREAM_HTTP_%d", response.StatusCode), fmt.Sprintf("Sub2API billing endpoint returned HTTP %d", response.StatusCode))
 		return snapshot

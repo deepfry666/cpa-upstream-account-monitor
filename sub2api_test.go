@@ -1,6 +1,7 @@
 package main
 
 import (
+	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -84,6 +85,22 @@ func TestApplySub2APIBillingResponseMarksPartialFailure(t *testing.T) {
 	section := snapshot.Sections["billing"]
 	if section.Status != "error" || section.ErrorCode != "UPSTREAM_HTTP_503" {
 		t.Fatalf("billing section = %+v", section)
+	}
+}
+
+func TestApplySub2APIBillingResponseTreatsNotFoundAsUnsupported(t *testing.T) {
+	snapshot := accountSnapshot{
+		AccountID: "sub2api-account",
+		Status:    statusOK,
+		Balances:  []moneyBalance{{Amount: "0.48410184", Currency: "USD", BalanceType: "remaining"}},
+	}
+	snapshot = applySub2APIBillingResponse(snapshot, hostHTTPResponse{StatusCode: http.StatusNotFound}, nil)
+	if snapshot.Status != statusOK || len(snapshot.Balances) != 1 {
+		t.Fatalf("snapshot = %+v, want healthy balance with unsupported billing section", snapshot)
+	}
+	section := snapshot.Sections["billing"]
+	if section.Status != "unsupported" || !strings.Contains(section.Message, "HTTP 404") {
+		t.Fatalf("billing section = %+v, want unsupported HTTP 404", section)
 	}
 }
 
