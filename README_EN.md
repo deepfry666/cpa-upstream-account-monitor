@@ -4,7 +4,7 @@
 
 A native CLIProxyAPI / CPA Manager Plus plugin for discovering upstream accounts from CPA configuration and host credentials, then monitoring balances, quota windows, usage, and health. It includes a Chinese-first responsive management UI and read-only endpoints for Hermes.
 
-Current version: `0.5.9`. The technical plugin ID and shared-library name remain `upstream-monitor`.
+Current version: `0.6.0`. The technical plugin ID and shared-library name remain `upstream-monitor`.
 
 ## Behavior
 
@@ -17,7 +17,7 @@ Current version: `0.5.9`. The technical plugin ID and shared-library name remain
 
 ## Data Semantics
 
-Supported adapters include DeepSeek, Zhipu / Z.ai, Moonshot, Kimi Coding, NewAPI, Sub2API, OpenCode Go, Command Code GOAT, OpenAI-compatible relays, and Codex API keys.
+Supported adapters include DeepSeek, Zhipu / Z.ai, Moonshot, Kimi Coding, NewAPI, Sub2API, OpenCode Go, Command Code GOAT, Cline Pass, OpenAI-compatible relays, and Codex API keys.
 
 The model keeps these concepts separate:
 
@@ -36,7 +36,11 @@ The Sub2API `/v1/sub2api/billing` endpoint is optional. HTTP 404 or 405 marks bi
 
 Command Code maps the five-hour and weekly windows directly from `windowLimits`. Its monthly window is derived from the active billing period's `totalMonthlyCredits` and `monthlyCredits`, with the subscription `currentPeriodEnd` as the reset time. The window is shown only when those server fields are present; no hardcoded plan allowance is used.
 
+Cline Pass uses its official account, balance, plan, and usage endpoints to show the live USD balance, Credits, and the server-defined five-hour, seven-day, and 30-day entitlement windows. Caps come from `inferenceCapThreshold`; usage is aggregated from usage transactions over each rolling period.
+
 Each item under **Needs attention** can now be dismissed individually. Dismissals persist in the plugin preferences, stay hidden and uncounted while the condition remains active, and are cleared automatically after the condition resolves so a recurrence is shown again. Account-level warning and critical summary counts are not hidden.
+
+When embedded in CPAMP, the parent page passes the current management session to the plugin over a same-origin `postMessage`. The plugin connects automatically and hides the Management Key field. Opening the plugin page directly still offers manual connection.
 
 ### Zhipu / Z.ai cash balance
 
@@ -117,8 +121,8 @@ Go 1.26+, CGO, and the target C compiler are required. Release packages must be 
 ```bash
 make test
 make vet
-make package VERSION=0.5.9 GOOS=linux GOARCH=amd64
-make package VERSION=0.5.9 GOOS=linux GOARCH=arm64
+make package VERSION=0.6.0 GOOS=linux GOARCH=amd64
+make package VERSION=0.6.0 GOOS=linux GOARCH=arm64
 ```
 
 `make package` performs a real `dlopen(RTLD_NOW)` and required-symbol check for the target architecture before creating a release ZIP. Linux AMD64 uses the native C toolchain. Linux ARM64 uses `aarch64-linux-gnu-gcc` with `qemu-aarch64-static`; when QEMU is absent, the build downloads and extracts it from the configured apt source into a temporary directory. `SKIP_PLUGIN_LOAD_CHECK=1` is only for local diagnostic builds and must not be used for releases.

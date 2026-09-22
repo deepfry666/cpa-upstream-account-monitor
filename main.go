@@ -79,7 +79,7 @@ import (
 const pluginName = "upstream-monitor"
 const repositoryURL = "https://github.com/deepfry666/cpa-upstream-account-monitor"
 
-var pluginVersion = "0.5.9"
+var pluginVersion = "0.6.0"
 
 type envelope struct {
 	OK     bool            `json:"ok"`
@@ -1789,7 +1789,7 @@ func maybeStartBackgroundRefresh(callbackID string) {
 
 func isSupportedAdapter(value string) bool {
 	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "deepseek-balance", "zai-usage", "moonshot-balance", "kimi-coding", "opencode-go", "newapi-usage", "sub2api-usage", "relay-usage", "commandcode-goat":
+	case "deepseek-balance", "zai-usage", "moonshot-balance", "kimi-coding", "opencode-go", "newapi-usage", "sub2api-usage", "relay-usage", "commandcode-goat", "clinepass-usage":
 		return true
 	default:
 		return false

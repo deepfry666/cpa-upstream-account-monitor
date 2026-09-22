@@ -7,7 +7,7 @@ const uiURL = `${uiBaseURL}/ui.html`;
 const iframeHarnessURL = `${uiBaseURL}/__upstream-monitor-iframe-harness`;
 
 const uiState = {
-  version: "0.5.9",
+  version: "0.6.0",
   generated_at: "2026-09-18T08:00:00Z",
   refreshing: false,
   providers: [
@@ -213,6 +213,35 @@ test("state warnings are shown in the status line", async ({ page }) => {
   const statusLine = page.locator("#status-line");
   await expect(statusLine).toContainText("快照缓存恢复失败");
   await expect(statusLine).toHaveClass(/error/);
+});
+
+test("embedded plugin auth auto-connects without showing the management key field", async ({
+  page,
+}) => {
+  let authorization = "";
+  await page.unroute("**/v0/management/upstream-monitor/state");
+  await page.route(
+    "**/v0/management/upstream-monitor/state",
+    async (route) => {
+      authorization = route.request().headers()["authorization"] || "";
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(uiState),
+      });
+    },
+  );
+
+  await page.goto(uiURL);
+  await page.evaluate(() =>
+    window.postMessage(
+      { type: "plugin-resource-auth", managementKey: "test-management-key" },
+      window.location.origin,
+    ),
+  );
+
+  await expect.poll(() => authorization).toBe("Bearer test-management-key");
+  await expect(page.locator(".connection")).toBeHidden();
 });
 
 test("Z.ai cash balance limitation renders with console action", async ({ page }) => {
@@ -1542,6 +1571,102 @@ test("NewAPI account balances show current remaining without lifetime total", as
   const bodyText = await page.locator("body").innerText();
   expect(bodyText).not.toContain("495.92 / 1000 CNY");
   expect(bodyText).toContain("NewAPI 账户余额");
+});
+
+test("Cline Pass renders its balance and rolling subscription windows", async ({
+  page,
+}) => {
+  const state = structuredClone(uiState);
+  state.report.accounts = [
+    {
+      id: "cline-pass-1",
+      name: "cline pass",
+      provider: "cline pass",
+      adapter: "clinepass-usage",
+      base_url: "https://api.cline.bot",
+      kind: "quota",
+      status: "ok",
+      capabilities: ["balance", "subscription_usage", "quota_windows"],
+      checked_at: "2026-09-22T04:00:00Z",
+      last_success_at: "2026-09-22T04:00:00Z",
+      balances: [{ amount: "0.316027", currency: "USD", balance_type: "remaining" }],
+      quantities: [
+        {
+          name: "Cline Pass Credits",
+          scope: "account",
+          source: "balance",
+          display: "remaining",
+          remaining: "31.6027",
+          unit: "credits",
+        },
+      ],
+      windows: [
+        {
+          name: "fiveHour",
+          source: "derived",
+          remaining_fraction: 0.9,
+          used_fraction: 0.1,
+          remaining_amount: "9",
+          total_amount: "10",
+          used_amount: "1",
+          unit: "USD",
+        },
+        {
+          name: "weekly",
+          source: "derived",
+          remaining_fraction: 0.96,
+          used_fraction: 0.04,
+          remaining_amount: "24",
+          total_amount: "25",
+          used_amount: "1",
+          unit: "USD",
+        },
+        {
+          name: "month",
+          source: "derived",
+          remaining_fraction: 0.94,
+          used_fraction: 0.06,
+          remaining_amount: "47",
+          total_amount: "50",
+          used_amount: "3",
+          unit: "USD",
+        },
+      ],
+      details: {
+        plan: { name: "Cline Pass (Monthly)", active: true },
+        account: { userName: "Tester" },
+      },
+      warnings: [],
+    },
+  ];
+  state.report.summary = {
+    ...state.report.summary,
+    total: 1,
+    ok: 1,
+    quotas: 1,
+  };
+  state.report.alerts = [];
+  await page.unroute("**/v0/management/upstream-monitor/state");
+  await page.route(
+    "**/v0/management/upstream-monitor/state",
+    async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(state),
+      });
+    },
+  );
+
+  await page.goto(uiURL);
+  await expect(page.locator(".hero-label")).toHaveText("5 小时额度");
+  await expect(page.locator(".hero-value")).toHaveText("9 / 10 USD");
+  await expect(page.locator(".hero-percent")).toHaveText("90% 剩余");
+  const bodyText = await page.locator("body").innerText();
+  expect(bodyText).toContain("Cline Pass");
+  expect(bodyText).toContain("一周");
+  expect(bodyText).toContain("一月");
+  expect(bodyText).toContain("0.316027 USD");
 });
 
 test("clearing an account snapshot requires explicit confirmation", async ({

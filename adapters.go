@@ -138,6 +138,7 @@ func adapterFor(candidate credentialCandidate) (string, credentialCandidate, boo
 	p := strings.ToLower(strings.TrimSpace(candidate.Provider))
 	host := hostname(candidate.BaseURL)
 	commandCode := matchesCommandCode(p, host)
+	clinePass := matchesClinePass(p, host)
 
 	config := monitorFor(candidate)
 	candidate.ManagementBaseURL = firstNonEmpty(config.ManagementBaseURL, candidate.ManagementBaseURL)
@@ -169,6 +170,8 @@ func adapterFor(candidate credentialCandidate) (string, credentialCandidate, boo
 	switch {
 	case commandCode:
 		return "commandcode-goat", normalizeCommandCodeCandidate(candidate), true
+	case clinePass:
+		return "clinepass-usage", candidate, true
 	case matchesDeepSeek(candidate):
 		return "deepseek-balance", candidate, true
 	case p == "zai" || p == "zhipu" || p == "glm" || host == "open.bigmodel.cn" || host == "api.z.ai":
@@ -248,6 +251,8 @@ func queryCandidateContext(parent context.Context, callbackID string, candidate 
 		snapshot, err = queryRelaySnapshot(ctx, callbackID, candidate, token)
 	case "commandcode-goat":
 		snapshot, err = queryCommandCodeSnapshot(ctx, callbackID, candidate, token)
+	case "clinepass-usage":
+		snapshot, err = queryClinePassSnapshot(ctx, callbackID, candidate, token)
 	default:
 		err = fmt.Errorf("adapter %q is not implemented", adapter)
 	}

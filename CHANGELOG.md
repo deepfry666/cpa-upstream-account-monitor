@@ -1,5 +1,24 @@
 # 更新日志
 
+## 0.6.0 - 2026-09-22
+
+本版本新增 Cline Pass 订阅监控，并支持从 CPAMP 嵌入页面自动继承管理会话，不再要求重复输入 CPA Management Key。
+
+### Cline Pass
+
+- 新增 `clinepass-usage` 适配器，自动识别 CPA 中的 `cline pass` 供应商。
+- 只读查询官方 `/api/v1/users/me`、余额、套餐权益和 usage 明细。
+- 展示实时 USD 余额、Credits 余额，以及 5 小时、7 天、30 天三个滚动窗口。
+- 窗口上限来自官方 `inferenceCapThreshold`，已用量按 usage 明细汇总。
+- usage 明细支持 `limit` 和 `cursor` 分页，并限制最多读取 10 页。
+
+### 自动连接
+
+- 插件嵌入 CPAMP 时，父页面通过同源 `postMessage` 提供当前 Management Key。
+- 收到会话后自动加载状态并隐藏连接表单。
+- 自动连接失败或单独打开插件页面时，仍可使用手动连接入口。
+- CPAMP 前端重建后包含 `plugin-resource-auth` 握手。
+
 ## 0.5.9 - 2026-09-19
 
 本补丁把每账户查询历史从 `100` 条降为 `50` 条。该设置同时作用于运行时写入、缓存加载、账户迁移和历史接口，重启后会立即只保留最近 50 条，不需要手动清理缓存。

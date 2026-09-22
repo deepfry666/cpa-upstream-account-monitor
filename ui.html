@@ -2031,6 +2031,8 @@
         "opencode-go": "OpenCode Go",
         "moonshot-balance": "Moonshot 余额",
         "relay-usage": "中转用量",
+        "clinepass-usage": "Cline Pass",
+        "cline pass": "Cline Pass",
         commandcode: "Command Code",
         commandcodegoat: "Command Code GOAT",
         "command-code": "Command Code",
@@ -2047,6 +2049,7 @@
         "opencode-go": "OpenCode Go",
         "moonshot-balance": "Moonshot 余额",
         "relay-usage": "中转用量",
+        "clinepass-usage": "Cline Pass",
         "commandcode-goat": "Command Code GOAT",
       };
       const labelForKey = (key) => {
@@ -2154,6 +2157,11 @@
         /commandcode|command-code|goat/i.test(
           `${account?.provider || ""} ${account?.name || ""}`,
         );
+      const isClinePassAccount = (account) =>
+        account?.adapter === "clinepass-usage" ||
+        /cline\s*pass|clinepass/i.test(
+          `${account?.provider || ""} ${account?.name || ""}`,
+        );
       const primaryMetric = (account) => {
         if (isCommandCodeAccount(account)) {
           const window =
@@ -2191,6 +2199,30 @@
             value: account.status === "unknown" ? "不可用" : "暂无数据",
             state: account.status,
           };
+        }
+        if (isClinePassAccount(account)) {
+          const window =
+            (account.windows || []).find((item) => item.name === "fiveHour") ||
+            (account.windows || []).find((item) => item.name === "weekly") ||
+            (account.windows || [])[0];
+          if (window)
+            return {
+              label: `${labelForKey(window.name || "额度窗口")}额度`,
+              value: amountText(
+                window.remaining_amount,
+                window.total_amount,
+                window.unit || "USD",
+              ),
+              percent: fractionForWindow(window),
+              state: account.status,
+            };
+          const balance = (account.balances || [])[0];
+          if (balance)
+            return {
+              label: "可用余额",
+              value: `${balance.amount} ${balance.currency}`,
+              state: account.status,
+            };
         }
         const balance =
           (account.balances || []).find((item) =>
@@ -3027,7 +3059,7 @@
             formatValue("expires_at", details.expires_at),
           );
         current.append(grid);
-        if (account.kind === "balance" && account.balances?.length) {
+        if (account.balances?.length) {
           const node = section(overview, "余额", "货币余额");
           const balanceGrid = document.createElement("div");
           balanceGrid.className = "definition-grid";
@@ -3985,6 +4017,7 @@
             pollTimer = setTimeout(loadState, 2500);
           }
         } catch (error) {
+          if (autoAuthAttempt) connectionPanel?.classList.remove("hidden");
           statusLine.className = "status-text error";
           statusLine.textContent = error.message || "加载失败";
           $("#page-state-text").textContent = "连接失败";
@@ -4363,6 +4396,27 @@
         event.preventDefault();
         event.returnValue = "";
       });
+      const connectionPanel = document.querySelector(".connection");
+      let autoAuthAttempt = false;
+      const applyAutoAuth = (managementKey) => {
+        const key = String(managementKey || "").trim();
+        if (!key) return;
+        autoAuthAttempt = true;
+        tokenInput.value = key;
+        connectionPanel?.classList.add("hidden");
+        loadState();
+      };
+      window.addEventListener("message", (event) => {
+        if (event.origin !== window.location.origin) return;
+        if (event.data?.type !== "plugin-resource-auth") return;
+        applyAutoAuth(event.data.managementKey);
+      });
+      if (window.parent !== window) {
+        window.parent.postMessage(
+          { type: "plugin-resource-auth-request" },
+          window.location.origin,
+        );
+      }
       const remembered = sessionStorage.getItem(
         "upstream-monitor-management-key",
       );

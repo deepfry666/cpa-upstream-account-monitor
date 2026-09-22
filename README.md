@@ -4,7 +4,7 @@
 
 “上游账户监控”是 [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) / CPA Manager Plus 的原生动态库插件。它从 CPA 配置和宿主凭证中独立发现上游账户，查询余额、额度、用量和健康状态，并提供中文优先的响应式管理页和只读机器接口。
 
-当前版本：`0.5.9`。插件技术 ID 和动态库名保持为 `upstream-monitor`，CPAMP 挂载入口不变。
+当前版本：`0.6.0`。插件技术 ID 和动态库名保持为 `upstream-monitor`，CPAMP 挂载入口不变。
 
 ## 核心行为
 
@@ -22,7 +22,7 @@
 
 ```text
 DeepSeek / 智谱 / Z.ai / Moonshot / Kimi Coding
-NewAPI / Sub2API / OpenCode Go / Command Code GOAT
+NewAPI / Sub2API / OpenCode Go / Command Code GOAT / Cline Pass
 OpenAI 兼容中转 / Codex API Key
 ```
 
@@ -43,7 +43,11 @@ Sub2API 的 `/v1/sub2api/billing` 是可选计费详情接口。实例返回 HTT
 
 Command Code 的 5 小时和一周窗口来自服务端 `windowLimits`；月度窗口由同账单周期的 `totalMonthlyCredits` 与 `monthlyCredits` 换算已用和剩余，重置时间取订阅的 `currentPeriodEnd`。只有服务端提供这些月度字段时才生成一月窗口，不会用硬编码套餐总额补齐。
 
+Cline Pass 使用官方账户、余额、套餐和 usage 接口，展示实时 USD 余额、Credits，以及 5 小时 / 一周 / 30 天三个服务端权益窗口。窗口上限来自 `inferenceCapThreshold`，已用量由 usage 明细按滚动时间范围汇总。
+
 顶部“需要处理”中的每条告警都可以单独“关闭”。关闭状态保存在插件偏好文件中，该告警在问题持续期间不再显示或计数；问题消失后关闭记录自动清理，再次发生时会重新提醒。账户本身的警告或严重状态统计不会被隐藏。
+
+插件嵌入 CPAMP 时，父页面通过同源 `postMessage` 传递当前管理会话，页面会自动连接并隐藏 Management Key 输入框。单独打开插件页面时仍保留手动连接入口。
 
 ### 智谱 / Z.ai 现金余额限制
 
@@ -175,9 +179,9 @@ GET /v0/resource/plugins/upstream-monitor/api/v1/report
 ```bash
 make test
 make vet
-make package VERSION=0.5.9 GOOS=linux GOARCH=amd64
-make package VERSION=0.5.9 GOOS=linux GOARCH=arm64
-make checksums VERSION=0.5.9 GOOS=linux GOARCH=amd64
+make package VERSION=0.6.0 GOOS=linux GOARCH=amd64
+make package VERSION=0.6.0 GOOS=linux GOARCH=arm64
+make checksums VERSION=0.6.0 GOOS=linux GOARCH=amd64
 ```
 
 `make package` 会先对目标架构动态库执行真实 `dlopen(RTLD_NOW)` 和必需导出符号检查，失败时不会生成发布 ZIP。Linux AMD64 使用本机 C 工具链；Linux ARM64 使用 `aarch64-linux-gnu-gcc` 和 `qemu-aarch64-static`，缺少 QEMU 时从当前 apt 软件源下载并解包到临时目录。`SKIP_PLUGIN_LOAD_CHECK=1` 只用于本机诊断构建，不能用于正式发布。
