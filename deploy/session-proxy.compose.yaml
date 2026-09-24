@@ -1,0 +1,49 @@
+name: upstream-monitor-auth
+
+services:
+  session-proxy:
+    build:
+      context: .
+      dockerfile: session-proxy.Dockerfile
+    image: cpa-upstream-monitor-session-proxy:0.6.1
+    container_name: upstream-monitor-session-proxy
+    restart: unless-stopped
+    read_only: true
+    user: "0:0"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 64m
+    cpus: 0.20
+    pids_limit: 48
+    ports:
+      - "127.0.0.1:18321:18320"
+    environment:
+      HTTP_ADDR: ":18320"
+      CPA_BASE_URL: "http://cli-proxy-api:8317"
+      CPAMP_BASE_URL: "http://cpa-manager-plus:18317"
+      CPA_MANAGEMENT_KEY_FILE: /run/secrets/cpa_management_key
+    secrets:
+      - cpa_management_key
+    networks:
+      - ai_gateway
+    healthcheck:
+      test: ["CMD", "/upstream-monitor-session-proxy", "--healthcheck"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+secrets:
+  cpa_management_key:
+    file: ./secrets/cpa-management-key
+
+networks:
+  ai_gateway:
+    external: true
+    name: cpa_ai_gateway

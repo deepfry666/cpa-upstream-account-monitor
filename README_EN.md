@@ -4,7 +4,7 @@
 
 A native CLIProxyAPI / CPA Manager Plus plugin for discovering upstream accounts from CPA configuration and host credentials, then monitoring balances, quota windows, usage, and health. It includes a Chinese-first responsive management UI and read-only endpoints for Hermes.
 
-Current version: `0.6.0`. The technical plugin ID and shared-library name remain `upstream-monitor`.
+Current version: `0.6.1`. The technical plugin ID and shared-library name remain `upstream-monitor`.
 
 ## Behavior
 
@@ -40,7 +40,7 @@ Cline Pass uses its official account, balance, plan, and usage endpoints to show
 
 Each item under **Needs attention** can now be dismissed individually. Dismissals persist in the plugin preferences, stay hidden and uncounted while the condition remains active, and are cleared automatically after the condition resolves so a recurrence is shown again. Account-level warning and critical summary counts are not hidden.
 
-When embedded in CPAMP, the parent page passes the current management session to the plugin over a same-origin `postMessage`. The plugin connects automatically and hides the Management Key field. Opening the plugin page directly still offers manual connection.
+When embedded in CPAMP, the parent page supplies the current CPAMP admin key over a same-origin `postMessage`. A dedicated session proxy exchanges it for a 12-hour HttpOnly cookie and uses the CPA Management Key only on the server for whitelisted management requests. No management key is written to Web Storage, URLs, ordinary cookies, or response bodies. Opening the plugin page directly still offers a CPAMP admin-key fallback.
 
 ### Zhipu / Z.ai cash balance
 
@@ -105,6 +105,24 @@ GET  /v0/management/upstream-monitor/history?account_id=...&limit=50
 POST /v0/management/upstream-monitor/cleanup
 ```
 
+The browser UI reaches those operations through the same-origin session proxy:
+
+```text
+POST   /upstream-monitor/session
+DELETE /upstream-monitor/session
+GET    /upstream-monitor/api/state
+GET    /upstream-monitor/api/refresh?job_id=...
+POST   /upstream-monitor/api/refresh
+GET    /upstream-monitor/api/config
+PUT    /upstream-monitor/api/config
+PUT    /upstream-monitor/api/providers
+GET    /upstream-monitor/api/history?account_id=...&limit=50
+POST   /upstream-monitor/api/cleanup
+POST   /upstream-monitor/api/alerts/dismiss
+```
+
+Only these paths and methods are allowed. Writes require a same-origin request marker. The CPAMP key is validated in real time against CPAMP's internal `/status` endpoint and is not persisted by the proxy; the CPA key remains in a server-side secret file and the internal CPA request header.
+
 Read-only Hermes routes use a separate `UPSTREAM_MONITOR_READ_TOKEN` supplied only through `Authorization: Bearer ...`:
 
 ```text
@@ -121,8 +139,8 @@ Go 1.26+, CGO, and the target C compiler are required. Release packages must be 
 ```bash
 make test
 make vet
-make package VERSION=0.6.0 GOOS=linux GOARCH=amd64
-make package VERSION=0.6.0 GOOS=linux GOARCH=arm64
+make package VERSION=0.6.1 GOOS=linux GOARCH=amd64
+make package VERSION=0.6.1 GOOS=linux GOARCH=arm64
 ```
 
 `make package` performs a real `dlopen(RTLD_NOW)` and required-symbol check for the target architecture before creating a release ZIP. Linux AMD64 uses the native C toolchain. Linux ARM64 uses `aarch64-linux-gnu-gcc` with `qemu-aarch64-static`; when QEMU is absent, the build downloads and extracts it from the configured apt source into a temporary directory. `SKIP_PLUGIN_LOAD_CHECK=1` is only for local diagnostic builds and must not be used for releases.

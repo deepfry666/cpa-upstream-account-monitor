@@ -7,7 +7,7 @@ const uiURL = `${uiBaseURL}/ui.html`;
 const iframeHarnessURL = `${uiBaseURL}/__upstream-monitor-iframe-harness`;
 
 const uiState = {
-  version: "0.6.0",
+  version: "0.6.1",
   generated_at: "2026-09-18T08:00:00Z",
   refreshing: false,
   providers: [
@@ -176,11 +176,8 @@ const uiState = {
 };
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => {
-    sessionStorage.setItem("upstream-monitor-management-key", "test-key");
-  });
   await page.route(
-    "**/v0/management/upstream-monitor/state",
+    "**/upstream-monitor/api/state",
     async (route) => {
       await route.fulfill({
         status: 200,
@@ -196,9 +193,9 @@ test("state warnings are shown in the status line", async ({ page }) => {
   state.warnings = [
     "快照缓存恢复失败，已保留原文件并停止自动覆盖：decode snapshot cache",
   ];
-  await page.unroute("**/v0/management/upstream-monitor/state");
+  await page.unroute("**/upstream-monitor/api/state");
   await page.route(
-    "**/v0/management/upstream-monitor/state",
+    "**/upstream-monitor/api/state",
     async (route) => {
       await route.fulfill({
         status: 200,
@@ -218,12 +215,23 @@ test("state warnings are shown in the status line", async ({ page }) => {
 test("embedded plugin auth auto-connects without showing the management key field", async ({
   page,
 }) => {
-  let authorization = "";
-  await page.unroute("**/v0/management/upstream-monitor/state");
+  let authenticated = false;
+  let submittedKey = "";
+  let sessionRequests = 0;
+  await page.unroute("**/upstream-monitor/api/state");
+  await page.route("**/upstream-monitor/session", async (route) => {
+    sessionRequests += 1;
+    submittedKey = route.request().postDataJSON().key;
+    authenticated = true;
+    await route.fulfill({ status: 204 });
+  });
   await page.route(
-    "**/v0/management/upstream-monitor/state",
+    "**/upstream-monitor/api/state",
     async (route) => {
-      authorization = route.request().headers()["authorization"] || "";
+      if (!authenticated) {
+        await route.fulfill({ status: 401, body: "unauthorized" });
+        return;
+      }
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -240,8 +248,26 @@ test("embedded plugin auth auto-connects without showing the management key fiel
     ),
   );
 
-  await expect.poll(() => authorization).toBe("Bearer test-management-key");
-  await expect(page.locator(".connection")).toBeHidden();
+  await expect.poll(() => submittedKey).toBe("test-management-key");
+  await expect(page.locator(".connection .field")).toBeHidden();
+  await expect(page.locator("#status-line")).toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        Object.keys(sessionStorage).some((key) =>
+          key.includes("upstream-monitor"),
+        ),
+      ),
+    )
+    .toBe(false);
+  await page.evaluate(() =>
+    window.postMessage(
+      { type: "plugin-resource-auth", managementKey: "test-management-key" },
+      window.location.origin,
+    ),
+  );
+  await page.waitForTimeout(100);
+  expect(sessionRequests).toBe(1);
 });
 
 test("Z.ai cash balance limitation renders with console action", async ({ page }) => {
@@ -270,8 +296,8 @@ test("Z.ai cash balance limitation renders with console action", async ({ page }
     base_url: "https://api.z.ai/api/paas/v4",
   };
 
-  await page.unroute("**/v0/management/upstream-monitor/state");
-  await page.route("**/v0/management/upstream-monitor/state", async (route) => {
+  await page.unroute("**/upstream-monitor/api/state");
+  await page.route("**/upstream-monitor/api/state", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -294,7 +320,7 @@ test("single account refresh sends an explicit asynchronous request", async ({
 }) => {
   const refreshRequests = [];
   await page.route(
-    "**/v0/management/upstream-monitor/refresh",
+    "**/upstream-monitor/api/refresh",
     async (route) => {
       const request = route.request();
       refreshRequests.push({
@@ -334,7 +360,7 @@ test("refresh polls the job and reports its final result", async ({ page }) => {
   let postCount = 0;
   let getCount = 0;
   await page.route(
-    "**/v0/management/upstream-monitor/refresh**",
+    "**/upstream-monitor/api/refresh**",
     async (route) => {
       const request = route.request();
       if (request.method() === "POST") {
@@ -387,7 +413,7 @@ test("refresh polls the job and reports its final result", async ({ page }) => {
 test("refresh all sends the explicit all scope", async ({ page }) => {
   const refreshRequests = [];
   await page.route(
-    "**/v0/management/upstream-monitor/refresh",
+    "**/upstream-monitor/api/refresh",
     async (route) => {
       refreshRequests.push(route.request().postDataJSON());
       await route.fulfill({
@@ -406,7 +432,7 @@ test("refresh all sends the explicit all scope", async ({ page }) => {
     },
   );
   await page.route(
-    "**/v0/management/upstream-monitor/refresh?job_id=*",
+    "**/upstream-monitor/api/refresh?job_id=*",
     async (route) => {
       await route.fulfill({
         status: 200,
@@ -438,9 +464,9 @@ test("refresh all sends the explicit all scope", async ({ page }) => {
 test("reload only reads state and never starts a refresh", async ({ page }) => {
   let stateCount = 0;
   let refreshCount = 0;
-  await page.unroute("**/v0/management/upstream-monitor/state");
+  await page.unroute("**/upstream-monitor/api/state");
   await page.route(
-    "**/v0/management/upstream-monitor/state",
+    "**/upstream-monitor/api/state",
     async (route) => {
       stateCount += 1;
       await route.fulfill({
@@ -451,7 +477,7 @@ test("reload only reads state and never starts a refresh", async ({ page }) => {
     },
   );
   await page.route(
-    "**/v0/management/upstream-monitor/refresh**",
+    "**/upstream-monitor/api/refresh**",
     async (route) => {
       refreshCount += 1;
       await route.fulfill({
@@ -480,9 +506,9 @@ test("provider save sends revision and explicit PAT actions", async ({ page }) =
     management_pat_configured: true,
   };
   let savedBody = null;
-  await page.unroute("**/v0/management/upstream-monitor/state");
+  await page.unroute("**/upstream-monitor/api/state");
   await page.route(
-    "**/v0/management/upstream-monitor/state",
+    "**/upstream-monitor/api/state",
     async (route) => {
       await route.fulfill({
         status: 200,
@@ -492,7 +518,7 @@ test("provider save sends revision and explicit PAT actions", async ({ page }) =
     },
   );
   await page.route(
-    "**/v0/management/upstream-monitor/providers",
+    "**/upstream-monitor/api/providers",
     async (route) => {
       savedBody = route.request().postDataJSON();
       await route.fulfill({
@@ -526,9 +552,9 @@ test("provider save result remains visible after state refresh", async ({ page }
     adapter: "newapi-usage",
     adapter_override: "newapi-usage",
   };
-  await page.unroute("**/v0/management/upstream-monitor/state");
+  await page.unroute("**/upstream-monitor/api/state");
   await page.route(
-    "**/v0/management/upstream-monitor/state",
+    "**/upstream-monitor/api/state",
     async (route) => {
       await route.fulfill({
         status: 200,
@@ -538,7 +564,7 @@ test("provider save result remains visible after state refresh", async ({ page }
     },
   );
   await page.route(
-    "**/v0/management/upstream-monitor/providers",
+    "**/upstream-monitor/api/providers",
     async (route) => {
       state.revision = 13;
       state.providers[0].custom_name = "已提交备注";
@@ -569,9 +595,9 @@ test("provider revision conflict keeps the draft and explains recovery", async (
 }) => {
   const state = structuredClone(uiState);
   state.revision = 12;
-  await page.unroute("**/v0/management/upstream-monitor/state");
+  await page.unroute("**/upstream-monitor/api/state");
   await page.route(
-    "**/v0/management/upstream-monitor/state",
+    "**/upstream-monitor/api/state",
     async (route) => {
       await route.fulfill({
         status: 200,
@@ -581,7 +607,7 @@ test("provider revision conflict keeps the draft and explains recovery", async (
     },
   );
   await page.route(
-    "**/v0/management/upstream-monitor/providers",
+    "**/upstream-monitor/api/providers",
     async (route) => {
       await route.fulfill({
         status: 409,
@@ -614,9 +640,9 @@ test("provider drafts survive tab changes", async ({ page }) => {
     adapter: "newapi-usage",
     adapter_override: "newapi-usage",
   };
-  await page.unroute("**/v0/management/upstream-monitor/state");
+  await page.unroute("**/upstream-monitor/api/state");
   await page.route(
-    "**/v0/management/upstream-monitor/state",
+    "**/upstream-monitor/api/state",
     async (route) => {
       await route.fulfill({
         status: 200,
@@ -655,9 +681,9 @@ test("state refresh preserves provider and monitor settings drafts", async ({
   state.config.cash_by_account = {
     "cc-1": { warning: "50", critical: "5" },
   };
-  await page.unroute("**/v0/management/upstream-monitor/state");
+  await page.unroute("**/upstream-monitor/api/state");
   await page.route(
-    "**/v0/management/upstream-monitor/state",
+    "**/upstream-monitor/api/state",
     async (route) => {
       await route.fulfill({
         status: 200,
@@ -741,9 +767,9 @@ test("unload is guarded only while provider drafts are dirty", async ({
   page,
 }) => {
   const state = structuredClone(uiState);
-  await page.unroute("**/v0/management/upstream-monitor/state");
+  await page.unroute("**/upstream-monitor/api/state");
   await page.route(
-    "**/v0/management/upstream-monitor/state",
+    "**/upstream-monitor/api/state",
     async (route) => {
       await route.fulfill({
         status: 200,
@@ -797,9 +823,9 @@ test("late history responses never replace the selected account history", async 
       ],
     },
   ];
-  await page.unroute("**/v0/management/upstream-monitor/state");
+  await page.unroute("**/upstream-monitor/api/state");
   await page.route(
-    "**/v0/management/upstream-monitor/state",
+    "**/upstream-monitor/api/state",
     async (route) => {
       await route.fulfill({
         status: 200,
@@ -809,7 +835,7 @@ test("late history responses never replace the selected account history", async 
     },
   );
   await page.route(
-    "**/v0/management/upstream-monitor/history?account_id=account-a*",
+    "**/upstream-monitor/api/history?account_id=account-a*",
     async (route) => {
       await new Promise((resolve) => setTimeout(resolve, 350));
       await route.fulfill({
@@ -836,7 +862,7 @@ test("late history responses never replace the selected account history", async 
     },
   );
   await page.route(
-    "**/v0/management/upstream-monitor/history?account_id=account-b*",
+    "**/upstream-monitor/api/history?account_id=account-b*",
     async (route) => {
       await route.fulfill({
         status: 200,
@@ -887,7 +913,7 @@ test("opening history identifies and focuses the selected account", async ({
   page,
 }) => {
   await page.route(
-    "**/v0/management/upstream-monitor/history?account_id=cc-1*",
+    "**/upstream-monitor/api/history?account_id=cc-1*",
     async (route) => {
       await route.fulfill({
         status: 200,
@@ -912,7 +938,7 @@ test("history load failures stay in the selected account view", async ({
   page,
 }) => {
   await page.route(
-    "**/v0/management/upstream-monitor/history?account_id=cc-1*",
+    "**/upstream-monitor/api/history?account_id=cc-1*",
     async (route) => {
       await route.fulfill({
         status: 503,
@@ -980,9 +1006,9 @@ test("clicking an alert locates its metric and offers filter recovery", async ({
       message: "一周额度剩余低于阈值",
     },
   ];
-  await page.unroute("**/v0/management/upstream-monitor/state");
+  await page.unroute("**/upstream-monitor/api/state");
   await page.route(
-    "**/v0/management/upstream-monitor/state",
+    "**/upstream-monitor/api/state",
     async (route) => {
       await route.fulfill({
         status: 200,
@@ -993,6 +1019,7 @@ test("clicking an alert locates its metric and offers filter recovery", async ({
   );
 
   await page.goto(uiURL);
+  await expect(page.locator("#status-line")).toContainText("已加载快照");
   await page.getByRole("searchbox", { name: "搜索账户或供应商" }).fill("不存在");
   await page.getByRole("button", { name: "额度", exact: true }).click();
   expect(
@@ -1037,9 +1064,9 @@ test("dismissing an alert hides it until the problem returns", async ({ page }) 
     },
   ];
   let dismissedBody = null;
-  await page.unroute("**/v0/management/upstream-monitor/state");
+  await page.unroute("**/upstream-monitor/api/state");
   await page.route(
-    "**/v0/management/upstream-monitor/state",
+    "**/upstream-monitor/api/state",
     async (route) => {
       await route.fulfill({
         status: 200,
@@ -1049,7 +1076,7 @@ test("dismissing an alert hides it until the problem returns", async ({ page }) 
     },
   );
   await page.route(
-    "**/v0/management/upstream-monitor/alerts/dismiss",
+    "**/upstream-monitor/api/alerts/dismiss",
     async (route) => {
       dismissedBody = route.request().postDataJSON();
       const dismissedState = structuredClone(state);
@@ -1089,9 +1116,9 @@ test("clicking an alert for an archived account explains the fallback", async ({
       message: "账户快照已过期",
     },
   ];
-  await page.unroute("**/v0/management/upstream-monitor/state");
+  await page.unroute("**/upstream-monitor/api/state");
   await page.route(
-    "**/v0/management/upstream-monitor/state",
+    "**/upstream-monitor/api/state",
     async (route) => {
       await route.fulfill({
         status: 200,
@@ -1128,9 +1155,9 @@ test("accounts keep first-seen order until the user chooses another sort", async
       status: "ok",
     },
   ];
-  await page.unroute("**/v0/management/upstream-monitor/state");
+  await page.unroute("**/upstream-monitor/api/state");
   await page.route(
-    "**/v0/management/upstream-monitor/state",
+    "**/upstream-monitor/api/state",
     async (route) => {
       await route.fulfill({
         status: 200,
@@ -1178,7 +1205,7 @@ test("navigation separates monitor settings from read-only data status", async (
 test("monitor settings save currency cash thresholds", async ({ page }) => {
   let savedBody = null;
   await page.route(
-    "**/v0/management/upstream-monitor/config",
+    "**/upstream-monitor/api/config",
     async (route) => {
       if (route.request().method() !== "PUT") return route.fallback();
       savedBody = JSON.parse(route.request().postData() || "{}");
@@ -1213,9 +1240,9 @@ test("provider save includes an account cash threshold override", async ({
     "cc-1": { warning: "10", critical: "1" },
   };
   let savedBody = null;
-  await page.unroute("**/v0/management/upstream-monitor/state");
+  await page.unroute("**/upstream-monitor/api/state");
   await page.route(
-    "**/v0/management/upstream-monitor/state",
+    "**/upstream-monitor/api/state",
     async (route) => {
       await route.fulfill({
         status: 200,
@@ -1225,7 +1252,7 @@ test("provider save includes an account cash threshold override", async ({
     },
   );
   await page.route(
-    "**/v0/management/upstream-monitor/providers",
+    "**/upstream-monitor/api/providers",
     async (route) => {
       savedBody = route.request().postDataJSON();
       state.revision = 13;
@@ -1266,9 +1293,9 @@ test("provider save failure preserves every edited draft field", async ({
   state.config.cash_by_account = {
     "cc-1": { warning: "10", critical: "1" },
   };
-  await page.unroute("**/v0/management/upstream-monitor/state");
+  await page.unroute("**/upstream-monitor/api/state");
   await page.route(
-    "**/v0/management/upstream-monitor/state",
+    "**/upstream-monitor/api/state",
     async (route) => {
       await route.fulfill({
         status: 200,
@@ -1278,7 +1305,7 @@ test("provider save failure preserves every edited draft field", async ({
     },
   );
   await page.route(
-    "**/v0/management/upstream-monitor/providers",
+    "**/upstream-monitor/api/providers",
     async (route) => {
       await route.fulfill({
         status: 500,
@@ -1330,9 +1357,9 @@ test("clearing an existing account cash override sends an explicit clear flag", 
     "cc-1": { warning: "10", critical: "1" },
   };
   let savedBody = null;
-  await page.unroute("**/v0/management/upstream-monitor/state");
+  await page.unroute("**/upstream-monitor/api/state");
   await page.route(
-    "**/v0/management/upstream-monitor/state",
+    "**/upstream-monitor/api/state",
     async (route) => {
       await route.fulfill({
         status: 200,
@@ -1342,7 +1369,7 @@ test("clearing an existing account cash override sends an explicit clear flag", 
     },
   );
   await page.route(
-    "**/v0/management/upstream-monitor/providers",
+    "**/upstream-monitor/api/providers",
     async (route) => {
       savedBody = route.request().postDataJSON();
       const savedState = structuredClone(state);
@@ -1454,9 +1481,9 @@ test("account details keep current quota visible while grouped views expose bill
     },
   ];
   state.report.alerts = [];
-  await page.unroute("**/v0/management/upstream-monitor/state");
+  await page.unroute("**/upstream-monitor/api/state");
   await page.route(
-    "**/v0/management/upstream-monitor/state",
+    "**/upstream-monitor/api/state",
     async (route) => {
       await route.fulfill({
         status: 200,
@@ -1553,9 +1580,9 @@ test("NewAPI account balances show current remaining without lifetime total", as
     quotas: 1,
   };
   state.report.alerts = [];
-  await page.unroute("**/v0/management/upstream-monitor/state");
+  await page.unroute("**/upstream-monitor/api/state");
   await page.route(
-    "**/v0/management/upstream-monitor/state",
+    "**/upstream-monitor/api/state",
     async (route) => {
       await route.fulfill({
         status: 200,
@@ -1646,9 +1673,9 @@ test("Cline Pass renders its balance and rolling subscription windows", async ({
     quotas: 1,
   };
   state.report.alerts = [];
-  await page.unroute("**/v0/management/upstream-monitor/state");
+  await page.unroute("**/upstream-monitor/api/state");
   await page.route(
-    "**/v0/management/upstream-monitor/state",
+    "**/upstream-monitor/api/state",
     async (route) => {
       await route.fulfill({
         status: 200,
@@ -1674,7 +1701,7 @@ test("clearing an account snapshot requires explicit confirmation", async ({
 }) => {
   const cleanupRequests = [];
   await page.route(
-    "**/v0/management/upstream-monitor/cleanup",
+    "**/upstream-monitor/api/cleanup",
     async (route) => {
       cleanupRequests.push(route.request().postDataJSON());
       await route.fulfill({

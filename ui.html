@@ -286,6 +286,18 @@
         align-items: center;
         gap: 10px;
       }
+      .connection.authenticated {
+        justify-content: flex-end;
+        padding-block: 12px;
+      }
+      .connection.authenticated .field,
+      .connection.authenticated #load {
+        display: none;
+      }
+      .connection.authenticated .connection-actions {
+        flex: 1;
+        justify-content: flex-end;
+      }
       .status-text {
         color: var(--muted);
         font-size: 12px;
@@ -1379,7 +1391,7 @@
         ><span class="brand-sub">CPA / CPAMP</span>
       </div>
       <div class="top-actions">
-        <span id="version" class="version">v0.5.3</span
+        <span id="version" class="version">v0.6.1</span
         ><button
           id="refresh-all"
           class="btn"
@@ -1413,12 +1425,12 @@
       </header>
       <section class="connection" aria-label="连接设置">
         <div class="field">
-          <label for="token">CPA 管理密钥</label
+          <label for="token">CPAMP 管理密钥</label
           ><input
             id="token"
             type="password"
             autocomplete="off"
-            placeholder="输入 CPA 管理密钥"
+            placeholder="输入 CPAMP 管理密钥"
           />
         </div>
         <div class="connection-actions">
@@ -1797,6 +1809,9 @@
     </main>
     <script>
       const $ = (selector) => document.querySelector(selector);
+      const API_BASE = "/upstream-monitor/api";
+      const SESSION_URL = "/upstream-monitor/session";
+      const REQUEST_MARKER = "X-Upstream-Monitor-Request";
       const tokenInput = $("#token"),
         statusLine = $("#status-line"),
         railList = $("#rail-list"),
@@ -2284,20 +2299,28 @@
         };
       };
       const api = async (path, options = {}) => {
-        const key = tokenInput.value.trim();
-        if (!key) throw new Error("请输入 CPA Management Key");
+        const method = String(options.method || "GET").toUpperCase();
         const headers = {
           Accept: "application/json",
-          Authorization: `Bearer ${key}`,
+          ...(method === "GET" ? {} : { [REQUEST_MARKER]: "1" }),
           ...(options.headers || {}),
         };
-        const response = await fetch(path, { ...options, headers });
+        const response = await fetch(path, {
+          ...options,
+          credentials: "same-origin",
+          headers,
+        });
         let data = {};
         try {
           data = await response.json();
         } catch {}
-        if (response.status === 401)
-          throw new Error("Management Key 无效或已失效");
+        if (response.status === 401) {
+          sessionEstablished = false;
+          connectionPanel?.classList.remove("authenticated");
+          const error = new Error("登录会话已失效，请重新连接");
+          error.status = response.status;
+          throw error;
+        }
         if (!response.ok) {
           const error = new Error(data.error || "请求失败");
           error.status = response.status;
@@ -2523,7 +2546,7 @@
         statusLine.textContent = "正在关闭告警…";
         try {
           uiState = await api(
-            "/v0/management/upstream-monitor/alerts/dismiss",
+            `${API_BASE}/alerts/dismiss`,
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -3936,7 +3959,7 @@
         feedback.className = "settings-feedback";
         feedback.textContent = "正在保存…";
         try {
-          const saved = await api("/v0/management/upstream-monitor/config", {
+          const saved = await api(`${API_BASE}/config`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -3994,9 +4017,9 @@
         renderProviders();
         renderSettings();
       }
-      async function loadState() {
+      async function loadState({ silentUnauthorized = false } = {}) {
         try {
-          const data = await api("/v0/management/upstream-monitor/state");
+          const data = await api(`${API_BASE}/state`);
           uiState = data;
           const warnings = Array.isArray(data.warnings)
             ? data.warnings.filter(Boolean)
@@ -4016,12 +4039,15 @@
             clearTimeout(pollTimer);
             pollTimer = setTimeout(loadState, 2500);
           }
+          return true;
         } catch (error) {
-          if (autoAuthAttempt) connectionPanel?.classList.remove("hidden");
+          if (silentUnauthorized && error.status === 401) return false;
+          connectionPanel?.classList.remove("authenticated");
           statusLine.className = "status-text error";
           statusLine.textContent = error.message || "加载失败";
           $("#page-state-text").textContent = "连接失败";
           $("#page-state-dot").className = "page-state-dot error";
+          return false;
         }
       }
       async function refreshNow(accountId = "") {
@@ -4038,7 +4064,7 @@
           const payload = accountId
             ? { account_ids: [accountId], force: true, async: true }
             : { scope: "all", force: true, async: true };
-          const job = await api("/v0/management/upstream-monitor/refresh", {
+          const job = await api(`${API_BASE}/refresh`, {
             method: "POST",
             body: JSON.stringify(payload),
             headers: { "Content-Type": "application/json" },
@@ -4058,7 +4084,7 @@
       async function pollRefreshJob(jobId) {
         while (activeRefreshJob === jobId) {
           const job = await api(
-            `/v0/management/upstream-monitor/refresh?job_id=${encodeURIComponent(jobId)}`,
+            `${API_BASE}/refresh?job_id=${encodeURIComponent(jobId)}`,
           );
           if (job.status === "completed" || job.status === "failed") {
             activeRefreshJob = "";
@@ -4155,7 +4181,7 @@
           return item;
         });
         try {
-          const saved = await api("/v0/management/upstream-monitor/providers", {
+          const saved = await api(`${API_BASE}/providers`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -4183,7 +4209,7 @@
       async function clearProviderSnapshot(id) {
         if (!id) return;
         try {
-          await api("/v0/management/upstream-monitor/cleanup", {
+          await api(`${API_BASE}/cleanup`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ ids: [id] }),
@@ -4243,7 +4269,7 @@
         body.textContent = "正在加载查询历史…";
         try {
           const data = await api(
-            `/v0/management/upstream-monitor/history?account_id=${encodeURIComponent(accountId)}&limit=50`,
+            `${API_BASE}/history?account_id=${encodeURIComponent(accountId)}&limit=50`,
           );
           if (
             requestSeq !== historyRequestSeq ||
@@ -4289,7 +4315,7 @@
           statusLine.className = "status-text";
           statusLine.textContent = "正在加载查询历史…";
           const data = await api(
-            `/v0/management/upstream-monitor/history?account_id=${encodeURIComponent(accountId)}&limit=50`,
+            `${API_BASE}/history?account_id=${encodeURIComponent(accountId)}&limit=50`,
           );
           if (requestSeq !== historyRequestSeq || selectedId !== accountId) {
             return;
@@ -4329,13 +4355,9 @@
         selectedId = event.target.value;
         renderMonitor();
       });
-      $("#load").addEventListener("click", () => {
-        sessionStorage.setItem(
-          "upstream-monitor-management-key",
-          tokenInput.value.trim(),
-        );
-        loadState();
-      });
+      $("#load").addEventListener("click", () =>
+        establishSession(tokenInput.value),
+      );
       $("#header-refresh").addEventListener("click", loadState);
       $("#refresh-all").addEventListener("click", () => refreshNow());
       $("#save-providers").addEventListener("click", saveProviders);
@@ -4397,19 +4419,52 @@
         event.returnValue = "";
       });
       const connectionPanel = document.querySelector(".connection");
-      let autoAuthAttempt = false;
-      const applyAutoAuth = (managementKey) => {
+      let sessionRequest = null;
+      let sessionEstablished = false;
+      const establishSession = async (managementKey) => {
         const key = String(managementKey || "").trim();
-        if (!key) return;
-        autoAuthAttempt = true;
-        tokenInput.value = key;
-        connectionPanel?.classList.add("hidden");
-        loadState();
+        if (!key || sessionEstablished) return sessionEstablished;
+        if (sessionRequest) return sessionRequest;
+        statusLine.className = "status-text";
+        statusLine.textContent = "正在建立安全会话…";
+        sessionRequest = (async () => {
+          try {
+            const response = await fetch(SESSION_URL, {
+              method: "POST",
+              credentials: "same-origin",
+              headers: {
+                "Content-Type": "application/json",
+                [REQUEST_MARKER]: "1",
+              },
+              body: JSON.stringify({ key }),
+            });
+            if (response.status === 401) {
+              throw new Error("CPAMP 管理密钥无效或已失效");
+            }
+            if (!response.ok) throw new Error("安全会话暂时不可用");
+            tokenInput.value = "";
+            const loaded = await loadState();
+            if (loaded) {
+              sessionEstablished = true;
+              connectionPanel?.classList.add("authenticated");
+            }
+            return loaded;
+          } catch (error) {
+            connectionPanel?.classList.remove("authenticated");
+            statusLine.className = "status-text error";
+            statusLine.textContent = error.message || "连接失败";
+            return false;
+          } finally {
+            sessionRequest = null;
+          }
+        })();
+        return sessionRequest;
       };
       window.addEventListener("message", (event) => {
         if (event.origin !== window.location.origin) return;
+        if (event.source !== window.parent) return;
         if (event.data?.type !== "plugin-resource-auth") return;
-        applyAutoAuth(event.data.managementKey);
+        establishSession(event.data.managementKey);
       });
       if (window.parent !== window) {
         window.parent.postMessage(
@@ -4417,21 +4472,12 @@
           window.location.origin,
         );
       }
-      const remembered = sessionStorage.getItem(
-        "upstream-monitor-management-key",
-      );
-      if (remembered) {
-        tokenInput.value = remembered;
-        loadState();
-      } else {
-        renderMonitor();
-      }
-      tokenInput.addEventListener("change", () =>
-        sessionStorage.setItem(
-          "upstream-monitor-management-key",
-          tokenInput.value.trim(),
-        ),
-      );
+      loadState({ silentUnauthorized: true }).then((loaded) => {
+        if (loaded) {
+          sessionEstablished = true;
+          connectionPanel?.classList.add("authenticated");
+        } else renderMonitor();
+      });
     </script>
   </body>
 </html>

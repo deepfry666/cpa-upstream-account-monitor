@@ -4,7 +4,7 @@
 
 “上游账户监控”是 [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) / CPA Manager Plus 的原生动态库插件。它从 CPA 配置和宿主凭证中独立发现上游账户，查询余额、额度、用量和健康状态，并提供中文优先的响应式管理页和只读机器接口。
 
-当前版本：`0.6.0`。插件技术 ID 和动态库名保持为 `upstream-monitor`，CPAMP 挂载入口不变。
+当前版本：`0.6.1`。插件技术 ID 和动态库名保持为 `upstream-monitor`，CPAMP 挂载入口不变。
 
 ## 核心行为
 
@@ -47,7 +47,7 @@ Cline Pass 使用官方账户、余额、套餐和 usage 接口，展示实时 U
 
 顶部“需要处理”中的每条告警都可以单独“关闭”。关闭状态保存在插件偏好文件中，该告警在问题持续期间不再显示或计数；问题消失后关闭记录自动清理，再次发生时会重新提醒。账户本身的警告或严重状态统计不会被隐藏。
 
-插件嵌入 CPAMP 时，父页面通过同源 `postMessage` 传递当前管理会话，页面会自动连接并隐藏 Management Key 输入框。单独打开插件页面时仍保留手动连接入口。
+插件嵌入 CPAMP 时，父页面通过同源 `postMessage` 提供当前 CPAMP 管理密钥，专用会话代理将它换成 12 小时 HttpOnly cookie，并在服务器侧使用 CPA Management Key 访问白名单接口。页面不会把任何管理密钥写入 `localStorage`、`sessionStorage`、URL 或普通 cookie。单独打开插件页面时仍保留 CPAMP 管理密钥手动连接入口。
 
 ### 智谱 / Z.ai 现金余额限制
 
@@ -141,6 +141,24 @@ GET  /v0/management/upstream-monitor/history?account_id=...&limit=50
 POST /v0/management/upstream-monitor/cleanup
 ```
 
+浏览器管理页通过同源会话代理访问对应接口：
+
+```text
+POST   /upstream-monitor/session
+DELETE /upstream-monitor/session
+GET    /upstream-monitor/api/state
+GET    /upstream-monitor/api/refresh?job_id=...
+POST   /upstream-monitor/api/refresh
+GET    /upstream-monitor/api/config
+PUT    /upstream-monitor/api/config
+PUT    /upstream-monitor/api/providers
+GET    /upstream-monitor/api/history?account_id=...&limit=50
+POST   /upstream-monitor/api/cleanup
+POST   /upstream-monitor/api/alerts/dismiss
+```
+
+代理只开放上述路径与方法；写操作要求同源请求标记。CPAMP 密钥只转发到 CPAMP 内网 `/status` 做实时校验，不在代理中落盘；CPA Management Key 只存在服务器 secret 文件和发往 CPA 内网接口的请求头中。
+
 异步单账户刷新：
 
 ```json
@@ -169,6 +187,8 @@ GET /v0/resource/plugins/upstream-monitor/api/v1/report
 - 诊断和机器报告不返回管理 PAT 或原始推理 Key。
 - 管理 PAT 使用 AES-GCM 加密，AAD 绑定稳定账户 ID；PAT 仅返回 `missing`、`ready` 或 `decrypt_error` 状态。
 - 已有密文但密钥丢失或错误时，不覆盖旧密文，也不把 PAT 标为可用；非 PAT 功能和其他账户继续工作。
+- 浏览器只保存 HttpOnly 会话 cookie；CPAMP 管理密钥由 CPAMP 自身实时校验且不在代理落盘，CPA 管理密钥不进入浏览器。
+- 会话代理只绑定宿主机回环端口，使用接口白名单、方法白名单、1 MiB 请求体上限和 16 MiB 响应体上限。
 - 插件不读取 Sub2API Balance 插件的数据库或运行状态，不修改 CPA 路由、凭证或请求处理逻辑。
 - URL、日志、缓存、报告和发布材料不包含 PAT、密钥或真实账户响应。
 
@@ -179,9 +199,9 @@ GET /v0/resource/plugins/upstream-monitor/api/v1/report
 ```bash
 make test
 make vet
-make package VERSION=0.6.0 GOOS=linux GOARCH=amd64
-make package VERSION=0.6.0 GOOS=linux GOARCH=arm64
-make checksums VERSION=0.6.0 GOOS=linux GOARCH=amd64
+make package VERSION=0.6.1 GOOS=linux GOARCH=amd64
+make package VERSION=0.6.1 GOOS=linux GOARCH=arm64
+make checksums VERSION=0.6.1 GOOS=linux GOARCH=amd64
 ```
 
 `make package` 会先对目标架构动态库执行真实 `dlopen(RTLD_NOW)` 和必需导出符号检查，失败时不会生成发布 ZIP。Linux AMD64 使用本机 C 工具链；Linux ARM64 使用 `aarch64-linux-gnu-gcc` 和 `qemu-aarch64-static`，缺少 QEMU 时从当前 apt 软件源下载并解包到临时目录。`SKIP_PLUGIN_LOAD_CHECK=1` 只用于本机诊断构建，不能用于正式发布。

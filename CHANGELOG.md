@@ -1,5 +1,17 @@
 # 更新日志
 
+## 0.6.1 - 2026-09-24
+
+本补丁修复 CPAMP 管理密钥与 CPA Management Key 不同导致的自动连接失败。新增专用会话代理，用 CPAMP 密钥换取 HttpOnly 会话，再由服务器侧代理白名单 CPA 管理接口；浏览器不再保存或直接发送 CPA Management Key。
+
+### 安全会话
+
+- 12 小时 HttpOnly、Secure、SameSite=Strict 会话 cookie。
+- CPAMP 密钥仅用于登录会话；CPA 密钥仅存在服务器 secret 和内网请求头。
+- 管理页面不再读写 `sessionStorage` 中的上游监控密钥。
+- 自动连接失败时显示手动兜底入口，已有有效 cookie 可直接恢复页面。
+- 会话代理限制路径、方法、请求体与响应体，并只绑定宿主机回环端口。
+
 ## 0.6.0 - 2026-09-22
 
 本版本新增 Cline Pass 订阅监控，并支持从 CPAMP 嵌入页面自动继承管理会话，不再要求重复输入 CPA Management Key。
