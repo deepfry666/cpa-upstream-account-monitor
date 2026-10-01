@@ -6,6 +6,14 @@
 
 当前版本：`0.6.1`。插件技术 ID 和动态库名保持为 `upstream-monitor`，CPAMP 挂载入口不变。
 
+如果一个 CPA 接了多个上游，这个插件能让你在一页里看清：每个账户还剩多少、限制属于当前 Key 还是整个账户、周期额度什么时候重置，以及这些数据最后一次成功查询的时间。不同币种、Credits 和周期窗口分别展示；“未知”也会保留为未知。
+
+从这里开始：[中文使用指南](./docs/USER_GUIDE.md) · [0.6.1 发布下载](https://github.com/deepfry666/cpa-upstream-account-monitor/releases/tag/v0.6.1) · [迁移与回滚](./docs/MIGRATION_AND_ROLLBACK.md)
+
+![小黑分别量取余额和周期额度，并记录更新时间；未知账户保留问号](./assets/upstream-monitor-illustrations/01-account-watch.png)
+
+首次安装请先看使用指南中的完整部署流程。`0.6.1` 的浏览器管理页需要同时部署插件动态库、会话代理和同源 HTTPS 反向代理；只安装 `.so` 不足以完成页面连接。
+
 ## 核心行为
 
 - 打开页面先读取已持久化的快照，不等待上游网络查询。快照超过 `cache_ttl_seconds` 后按 `last_success_at` 标记过期，并继续展示上次成功数据和真实采集时间。
@@ -86,9 +94,11 @@ url      使用指定 http、https 或 socks5 代理
 数据状态       TTL、同步周期、超时、目录同步状态和配置来源
 ```
 
-账户默认按首次发现顺序稳定排列，新条目追加。详情按“当前额度、计费与限制、用量统计、历史、诊断”组织；原有计费、倍率、速率限制、Token、每日用量和模型统计均保留。桌面、平板和手机提供等价核心操作，PAT 草稿只存在当前页面内存，不写入 `localStorage`、`sessionStorage` 或 URL。
+账户默认按首次发现顺序稳定排列，新条目追加。详情按“概览、计费与限制、用量统计、历史、诊断”组织；原有计费、倍率、速率限制、Token、每日用量和模型统计均保留。桌面、平板和手机提供等价核心操作，PAT 草稿只存在当前页面内存，不写入 `localStorage`、`sessionStorage` 或 URL。
 
 ## 安装
+
+以下配置用于 CPA 中的插件本体。浏览器管理页还需要 [使用指南中的会话代理部署](./docs/USER_GUIDE.md#安装与升级)，包括 CPAMP 认证、服务器侧 CPA Management Key 和 `/upstream-monitor/` 路由。
 
 发布包提供 Linux AMD64 和 Linux ARM64：
 

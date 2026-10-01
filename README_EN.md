@@ -6,6 +6,14 @@ A native CLIProxyAPI / CPA Manager Plus plugin for discovering upstream accounts
 
 Current version: `0.6.1`. The technical plugin ID and shared-library name remain `upstream-monitor`.
 
+Use it to check how much each upstream account has left, whether a limit belongs to one key or the whole account, when a quota window resets, and when the data was last fetched successfully. Currencies, Credits, and quota windows remain separate; unknown values remain unknown.
+
+Start here: [Chinese user guide](./docs/USER_GUIDE.md) · [v0.6.1 downloads](https://github.com/deepfry666/cpa-upstream-account-monitor/releases/tag/v0.6.1) · [Migration and rollback](./docs/MIGRATION_AND_ROLLBACK.md)
+
+![Xiaohei checks separate balance and quota jars and records data freshness; unknown values remain unknown](./assets/upstream-monitor-illustrations/01-account-watch.png)
+
+The v0.6.1 browser UI requires the shared library, the session proxy, and a same-origin HTTPS reverse-proxy route. Installing the `.so` alone does not complete the browser setup. The user guide includes deployment instructions for the proxy.
+
 ## Behavior
 
 - The page restores persisted snapshots immediately and never waits for an upstream request before rendering. A snapshot becomes stale from `last_success_at` and `cache_ttl_seconds`; the last successful value and its real timestamp remain visible.
@@ -57,6 +65,8 @@ Management PATs are encrypted with AES-GCM and bound to the stable account ID as
 Proxy settings are explicitly `inherit`, `direct`, or `url`. HTTP, HTTPS, SOCKS5, and SOCKS5 username/password authentication are supported. Cross-host redirects are rejected, and proxy credentials are not logged.
 
 ## Install
+
+This section configures the CPA plugin itself. Follow the [complete deployment guide](./docs/USER_GUIDE.md#安装与升级) for the session proxy, CPAMP authentication, server-side CPA Management Key, and `/upstream-monitor/` route.
 
 Release archives target Linux AMD64 and Linux ARM64:
 
