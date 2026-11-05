@@ -1,6 +1,6 @@
 # 上游账户监控使用指南
 
-适用版本：`upstream-monitor 0.6.2`。本指南根据当前页面、适配器和部署配置编写。
+本指南描述当前 `main` 源码（`upstream-monitor 0.6.2`）。截至 2026-11-05，最新公开 Release 为 `v0.6.1`，尚无 `v0.6.2` 下载包。下方下载示例使用真实发布的 `v0.6.1` 资产；需要 `0.6.2` 的 CPA 密钥登录和无 CPAMP 模式时，需从当前源码构建插件及会话代理。使用发布包时请同时核对 [v0.6.1 发布说明](https://github.com/deepfry666/cpa-upstream-account-monitor/releases/tag/v0.6.1) 与下文的版本差异。
 
 ![小黑分别查看余额与周期额度，记录更新时间，不把未知读数当作零](../assets/upstream-monitor-illustrations/01-account-watch.png)
 
@@ -43,26 +43,33 @@
 
 ### 准备三个组件
 
-`0.6.2` 的完整浏览器管理流程需要：
+完整浏览器管理流程需要：
 
 | 组件 | 作用 | 部署要求 |
 | --- | --- | --- |
 | `upstream-monitor.so` | 发现账户、查询上游、保存快照与偏好 | 支持本插件原生动态库接口的 Linux CPA；选匹配的 AMD64 或 ARM64 包 |
-| 会话代理 | 校验 CPAMP 管理密钥，并在服务器侧访问 CPA | 可访问 CPAMP `/status` 和 CPA Management API；持有服务器侧 CPA secret |
+| 会话代理 | 校验登录密钥，并在服务器侧访问 CPA | 可访问 CPA Management API；持有服务器侧 CPA secret；使用 CPAMP 密钥登录时还需访问其 `/status` |
 | HTTPS 反向代理路由 | 让浏览器通过同一来源访问会话和管理接口 | 与插件页面相同的协议、域名和端口；保留 `/upstream-monitor/` 路径 |
 
-这里有两套管理密钥：页面输入的是 **CPAMP 管理密钥**；代理读取的是 **CPA Management Key**。它们可以不同，后者不需要输入浏览器。会话 cookie 设置了 `Secure`，实际部署应通过 HTTPS 访问。
+认证方式取决于所部署的会话代理版本：
+
+- **已发布 `v0.6.1`**：页面输入 CPAMP 管理密钥；代理读取服务器侧 CPA Management Key，两者可以不同。
+- **当前源码 `0.6.2`**：支持直接输入与服务器 secret 一致的 CPA Management Key；配置了 CPAMP 时也接受 CPAMP 管理密钥。无需 CPAMP 时设置 `CPAMP_BASE_URL=off`，不要只留空，空值会使用默认 CPAMP 地址。
+
+会话 cookie 设置了 `Secure`，实际部署应通过 HTTPS 访问。管理密钥只应输入可信的同源页面，不保存到浏览器存储或 URL。
 
 升级已有安装前，按 [迁移与回滚说明](./MIGRATION_AND_ROLLBACK.md) 停止写入并成套备份动态库、偏好文件、偏好密钥和快照缓存。`0.5.x` / `0.6.0` 到 `0.6.2` 虽然无需改数据格式，管理页仍需新增的会话代理。
 
 ### 1. 安装插件本体
 
-从 [v0.6.2 Release](https://github.com/deepfry666/cpa-upstream-account-monitor/releases/tag/v0.6.2) 下载架构匹配的 `upstream-monitor_0.6.2_linux_amd64.zip` 或 `upstream-monitor_0.6.2_linux_arm64.zip`，用同页 `checksums.txt` 核对 SHA-256。解压后保持动态库名为 `upstream-monitor.so`，放入 CPA 使用的对应架构插件目录，例如：
+从 [v0.6.1 Release](https://github.com/deepfry666/cpa-upstream-account-monitor/releases/tag/v0.6.1) 下载架构匹配的 `upstream-monitor_0.6.1_linux_amd64.zip` 或 `upstream-monitor_0.6.1_linux_arm64.zip`，用同页 `checksums.txt` 核对 SHA-256。解压后保持动态库名为 `upstream-monitor.so`，放入 CPA 使用的对应架构插件目录，例如：
 
 ```text
 plugins/linux/amd64/upstream-monitor.so
 plugins/linux/arm64/upstream-monitor.so
 ```
+
+需要当前 `0.6.2` 源码功能时，按 [源码构建步骤](../README.md#构建与发布) 生成匹配架构的插件，并同时构建下节的会话代理；不要把 `v0.6.1` 下载包视为 `0.6.2`。
 
 使用 [README 的 CPA 配置示例](../README.md#安装) 开启插件，并确认这些路径是 **CPA 进程或容器内** 实际可读写的路径：
 
@@ -74,9 +81,9 @@ plugins/linux/arm64/upstream-monitor.so
 
 ### 2. 准备会话代理
 
-Linux AMD64 可直接下载 `upstream-monitor-session-proxy_0.6.2_linux_amd64.zip`，用 Release 中的 `SHA256SUMS` 核对后，解压到独立的部署目录。包内有代理二进制、Dockerfile、Compose、Nginx 片段和发布说明；此代理包与插件 `.so` 包是两份资产。
+Linux AMD64 可直接下载 `upstream-monitor-session-proxy_0.6.1_linux_amd64.zip`，用 Release 中的 `SHA256SUMS` 核对后，解压到独立的部署目录。包内有代理二进制、Dockerfile、Compose、Nginx 片段和发布说明；此代理包与插件 `.so` 包是两份资产。
 
-当前 Release 未提供 ARM64 会话代理包。需要 ARM64 时，在本仓库根目录用 Go 1.26+ 构建，并将部署文件放在源码仓库之外：
+`v0.6.1` Release 未提供 ARM64 会话代理包。需要 ARM64 或当前 `0.6.2` 代理功能时，在对应版本的源码根目录用 Go 1.26+ 构建，并将部署文件放在源码仓库之外。下面以 ARM64 为例，AMD64 将 `GOARCH=arm64` 改为 `GOARCH=amd64`：
 
 ```bash
 mkdir -p ../upstream-monitor-session-proxy-deploy
@@ -93,7 +100,7 @@ cp deploy/session-proxy.Dockerfile deploy/session-proxy.compose.yaml deploy/ngin
 | Compose 配置 | 模板值 | 需要确认什么 |
 | --- | --- | --- |
 | `CPA_BASE_URL` | `http://cli-proxy-api:8317` | 代理容器能访问的 CPA 地址 |
-| `CPAMP_BASE_URL` | `http://cpa-manager-plus:18317` | 代理容器能访问的 CPAMP 地址；设为 `off` 时只接受 CPA Management Key，且 `/status` 支持当前管理密钥校验 |
+| `CPAMP_BASE_URL` | `http://cpa-manager-plus:18317` | 代理容器能访问的 CPAMP 地址，其 `/status` 需支持管理密钥校验；仅 `0.6.2` 支持设为 `off`，此时只接受 CPA Management Key |
 | `CPA_MANAGEMENT_KEY_FILE` | `/run/secrets/cpa_management_key` | 保持与 Compose secret 挂载路径一致 |
 | secret 源文件 | `./secrets/cpa-management-key` | 上一步创建的服务器私密文件 |
 | 外部网络名 | `cpa_ai_gateway` | 已存在且能连接 CPA、CPAMP 的实际 Docker 网络 |
@@ -107,7 +114,7 @@ docker compose -f session-proxy.compose.yaml ps
 curl -i http://127.0.0.1:18321/health
 ```
 
-健康接口应返回 `204`；它只验证代理进程可用，首次登录还会验证 CPAMP 和 CPA 连接。
+健康接口应返回 `204`；它只验证代理进程可用。还需验证登录和实际数据请求；使用 CPAMP 密钥登录时会调用 CPAMP `/status`。
 
 ### 3. 配置同源 HTTPS 路由
 
@@ -132,7 +139,7 @@ location ^~ /upstream-monitor/ {
 ## 首次使用
 
 1. 登录 CPAMP，从插件入口打开“上游账户监控”。支持同源认证握手的父页面会自动建立会话；成功后连接区隐藏。
-2. 独立打开插件页面或自动认证未完成时，在“CPAMP 管理密钥”中输入当前 CPAMP 密钥，点击“连接并加载”。
+2. 独立打开插件页面或自动认证未完成时，在密钥输入框中输入对应代理版本支持的管理密钥，点击“连接并加载”。`0.6.2` 的输入框名称为“管理密钥”，接受 CPA Management Key 或已配置的 CPAMP 管理密钥；`v0.6.1` 使用 CPAMP 管理密钥。
 3. 打开“供应商配置”，核对发现的账户、Base URL 与查询方式。按需勾选监控账户，填写便于区分的备注；备注只用于本插件。
 4. NewAPI 需要整账户信息时，填写该账户的管理 PAT。默认先用“自动识别”，只有已确认平台协议时才手动切换查询方式。
 5. 点击“保存监控配置”，再到“账户监控”查看。打开页面会先展示已保存快照；首次查询或后台查询进行中时可稍候，或对所选账户点击“刷新当前”。
@@ -181,7 +188,7 @@ NewAPI 的推理 Key 与管理 PAT 用途不同：Key 查询当前 Key 的可用
 
 PAT 草稿只保留在当前页面内存。服务器使用 AES-GCM 加密存储 PAT，接口不会回显原文。备份必须同时保留偏好文件与配套 `.key`；丢失密钥后不能仅凭 JSON 恢复 PAT。出现 `decrypt_error` 时先恢复匹配密钥；`relink_required` 表示旧账户身份无法唯一匹配，需要确认账户并重新关联。
 
-浏览器通过最长 12 小时的 HttpOnly 会话 cookie 访问代理，CPAMP 密钥由 CPAMP 实时校验后建立会话，CPA 密钥只留在服务器。代理重启会清空内存会话，页面需重新连接。只读报告使用独立的 `UPSTREAM_MONITOR_READ_TOKEN`，通过 Authorization 请求头提供，不放进 URL。
+浏览器通过最长 12 小时的 HttpOnly 会话 cookie 访问代理。CPAMP 登录由 CPAMP 实时校验；`0.6.2` 也支持将登录输入与代理的服务器侧 CPA secret 比对。代理不会把登录密钥持久化到浏览器；直接使用 CPA 密钥登录时，它会经同源 HTTPS 发送到代理。代理重启会清空内存会话，页面需重新连接。只读报告使用独立的 `UPSTREAM_MONITOR_READ_TOKEN`，通过 Authorization 请求头提供，不放进 URL。
 
 备份、排错截图和日志分享前仍需脱敏：即使没有密钥，账户名称、地址、余额和用量也可能属于私密信息。
 
@@ -189,8 +196,8 @@ PAT 草稿只保留在当前页面内存。服务器使用 AES-GCM 加密存储 
 
 | 现象 | 检查方法 |
 | --- | --- |
-| 安装 `.so` 后页面提示“安全会话暂时不可用” | 检查代理进程、`/upstream-monitor/` 路由、HTTPS、CPAMP `/status` 可达性；这是完整部署的一部分 |
-| 提示 CPAMP 管理密钥无效或已失效 | 使用当前 CPAMP 管理密钥；服务器 secret 中的 CPA Management Key 用于另一条连接 |
+| 安装 `.so` 后页面提示“安全会话暂时不可用” | 检查代理进程、`/upstream-monitor/` 路由、HTTPS；使用 CPAMP 密钥登录时还需检查其 `/status` 可达性 |
+| 提示管理密钥无效或已失效 | 先核对代理版本：`v0.6.1` 使用 CPAMP 管理密钥；`0.6.2` 也可使用与服务器 secret 一致的 CPA Management Key。`CPAMP_BASE_URL=off` 仅适用于 `0.6.2` |
 | 登录看似成功，但数据请求仍未授权 | 核对同源 HTTPS 与 cookie；检查代理使用的 CPA secret、CPA 管理接口权限和地址。会话过期或代理重启后重新打开页面连接 |
 | 供应商配置中缺少新账户 | 在 CPA 中确认配置有效，点击“重新加载”；检查“数据状态”的目录同步结果及容器内 `source_config_path` |
 | 余额一直是旧值 | 看最近成功时间、是否过期和刷新失败原因；TTL 内读取旧快照是正常行为，需立即查询时用“刷新当前” |

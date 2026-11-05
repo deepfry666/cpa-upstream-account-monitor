@@ -4,15 +4,25 @@
 
 A native CLIProxyAPI / CPA Manager Plus plugin for discovering upstream accounts from CPA configuration and host credentials, then monitoring balances, quota windows, usage, and health. It includes a Chinese-first responsive management UI and read-only endpoints for Hermes.
 
-Current version: `0.6.1`. The technical plugin ID and shared-library name remain `upstream-monitor`.
+Source version: `0.6.2`. The latest published download is [`v0.6.1`](https://github.com/deepfry666/cpa-upstream-account-monitor/releases/tag/v0.6.1), verified on 2026-11-05. There is no public `v0.6.2` release yet. This README describes the current source; use version-matched documentation when installing a release. The plugin ID and shared-library name remain `upstream-monitor`.
 
 Use it to check how much each upstream account has left, whether a limit belongs to one key or the whole account, when a quota window resets, and when the data was last fetched successfully. Currencies, Credits, and quota windows remain separate; unknown values remain unknown.
 
-Start here: [Chinese user guide](./docs/USER_GUIDE.md) · [v0.6.1 downloads](https://github.com/deepfry666/cpa-upstream-account-monitor/releases/tag/v0.6.1) · [Migration and rollback](./docs/MIGRATION_AND_ROLLBACK.md)
+Start here: [Chinese user guide](./docs/USER_GUIDE.md) · [Published downloads](https://github.com/deepfry666/cpa-upstream-account-monitor/releases/latest) · [Migration and rollback](./docs/MIGRATION_AND_ROLLBACK.md)
 
 ![Xiaohei checks separate balance and quota jars and records data freshness; unknown values remain unknown](./assets/upstream-monitor-illustrations/01-account-watch.png)
 
-The v0.6.1 browser UI requires the shared library, the session proxy, and a same-origin HTTPS reverse-proxy route. Installing the `.so` alone does not complete the browser setup. The user guide includes deployment instructions for the proxy.
+The browser UI requires the shared library, the session proxy, and a same-origin HTTPS reverse-proxy route. Installing the `.so` alone does not complete the browser setup. The user guide includes deployment instructions for the proxy.
+
+## What You Can Do
+
+- **Check accounts in one place:** review upstream balances, quota windows, alerts, and collection timestamps.
+- **Investigate quota issues:** distinguish key limits, account limits, and subscription windows, including partial results and query failures.
+- **Connect read-only tools:** retrieve health and structured reports using a separate token.
+
+The plugin monitors accounts; it does not top up balances, change CPA routing, or rotate credentials. Account health is not a guarantee that every model has passed an inference test.
+
+Quick links: [Supported data](#data-semantics) · [Install](#install) · [Management API](#management-api) · [Build from source](#build)
 
 ## Behavior
 
@@ -48,7 +58,7 @@ Cline Pass uses its official account, balance, plan, and usage endpoints to show
 
 Each item under **Needs attention** can now be dismissed individually. Dismissals persist in the plugin preferences, stay hidden and uncounted while the condition remains active, and are cleared automatically after the condition resolves so a recurrence is shown again. Account-level warning and critical summary counts are not hidden.
 
-When embedded in CPAMP, the parent page supplies the current CPAMP admin key over a same-origin `postMessage`. A dedicated session proxy exchanges it for a 12-hour HttpOnly cookie and uses the CPA Management Key only on the server for whitelisted management requests. No management key is written to Web Storage, URLs, ordinary cookies, or response bodies. Opening the plugin page directly still offers a CPAMP admin-key fallback.
+When embedded in CPAMP, the parent page supplies the current CPAMP admin key over a same-origin `postMessage`. A dedicated session proxy exchanges it for a 12-hour HttpOnly cookie and uses the CPA Management Key only on the server for whitelisted management requests. No management key is written to Web Storage, URLs, ordinary cookies, or response bodies. The current `0.6.2` source also accepts a CPA Management Key at login. Set `CPAMP_BASE_URL=off` to run without CPAMP. These options are not part of the published `v0.6.1` release.
 
 ### Zhipu / Z.ai cash balance
 
@@ -66,7 +76,7 @@ Proxy settings are explicitly `inherit`, `direct`, or `url`. HTTP, HTTPS, SOCKS5
 
 ## Install
 
-This section configures the CPA plugin itself. Follow the [complete deployment guide](./docs/USER_GUIDE.md#安装与升级) for the session proxy, CPAMP authentication, server-side CPA Management Key, and `/upstream-monitor/` route.
+This section configures the CPA plugin itself. Follow the [complete deployment guide](./docs/USER_GUIDE.md#安装与升级) for the session proxy, management-key authentication, server-side CPA Management Key, and `/upstream-monitor/` route.
 
 Release archives target Linux AMD64 and Linux ARM64:
 
@@ -131,7 +141,7 @@ POST   /upstream-monitor/api/cleanup
 POST   /upstream-monitor/api/alerts/dismiss
 ```
 
-Only these paths and methods are allowed. Writes require a same-origin request marker. The CPAMP key is validated in real time against CPAMP's internal `/status` endpoint and is not persisted by the proxy; the CPA key remains in a server-side secret file and the internal CPA request header.
+Only these paths and methods are allowed. Writes require a same-origin request marker. The CPAMP key is validated in real time against CPAMP's internal `/status` endpoint and is not persisted by the proxy; the proxy uses the CPA key from its server-side secret file for internal CPA requests. In `0.6.2`, that key may also be submitted at login over trusted same-origin HTTPS; it is not persisted in browser storage.
 
 Read-only Hermes routes use a separate `UPSTREAM_MONITOR_READ_TOKEN` supplied only through `Authorization: Bearer ...`:
 
@@ -149,8 +159,8 @@ Go 1.26+, CGO, and the target C compiler are required. Release packages must be 
 ```bash
 make test
 make vet
-make package VERSION=0.6.1 GOOS=linux GOARCH=amd64
-make package VERSION=0.6.1 GOOS=linux GOARCH=arm64
+make package VERSION=0.6.2 GOOS=linux GOARCH=amd64
+make package VERSION=0.6.2 GOOS=linux GOARCH=arm64
 ```
 
 `make package` performs a real `dlopen(RTLD_NOW)` and required-symbol check for the target architecture before creating a release ZIP. Linux AMD64 uses the native C toolchain. Linux ARM64 uses `aarch64-linux-gnu-gcc` with `qemu-aarch64-static`; when QEMU is absent, the build downloads and extracts it from the configured apt source into a temporary directory. `SKIP_PLUGIN_LOAD_CHECK=1` is only for local diagnostic builds and must not be used for releases.

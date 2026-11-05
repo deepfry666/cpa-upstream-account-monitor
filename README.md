@@ -4,15 +4,25 @@
 
 “上游账户监控”是 [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) / CPA Manager Plus 的原生动态库插件。它从 CPA 配置和宿主凭证中独立发现上游账户，查询余额、额度、用量和健康状态，并提供中文优先的响应式管理页和只读机器接口。
 
-当前版本：`0.6.2`。插件技术 ID 和动态库名保持为 `upstream-monitor`，CPAMP 挂载入口不变。
+源码版本：`0.6.2`；已发布下载：[`v0.6.1`](https://github.com/deepfry666/cpa-upstream-account-monitor/releases/tag/v0.6.1)（2026-11-05 核对）。`0.6.2` 尚无公开 Release，下文描述当前源码；安装发布包时请以对应版本的文档为准。插件技术 ID 和动态库名保持为 `upstream-monitor`。
 
 如果一个 CPA 接了多个上游，这个插件能让你在一页里看清：每个账户还剩多少、限制属于当前 Key 还是整个账户、周期额度什么时候重置，以及这些数据最后一次成功查询的时间。不同币种、Credits 和周期窗口分别展示；“未知”也会保留为未知。
 
-从这里开始：[中文使用指南](./docs/USER_GUIDE.md) · [0.6.2 发布下载](https://github.com/deepfry666/cpa-upstream-account-monitor/releases/tag/v0.6.2) · [迁移与回滚](./docs/MIGRATION_AND_ROLLBACK.md)
+从这里开始：[中文使用指南](./docs/USER_GUIDE.md) · [已发布版本下载](https://github.com/deepfry666/cpa-upstream-account-monitor/releases/latest) · [迁移与回滚](./docs/MIGRATION_AND_ROLLBACK.md)
 
 ![小黑分别量取余额和周期额度，并记录更新时间；未知账户保留问号](./assets/upstream-monitor-illustrations/01-account-watch.png)
 
 首次安装请先看使用指南中的完整部署流程。`0.6.2` 的浏览器管理页需要同时部署插件动态库、会话代理和同源 HTTPS 反向代理；只安装 `.so` 不足以完成页面连接。
+
+## 适合怎样使用
+
+- **日常巡检**：集中查看多个上游账户的余额、周期窗口、告警和采集时间。
+- **排查额度问题**：分别核对当前 Key、整账户和套餐窗口，保留部分成功结果与失败原因。
+- **接入只读工具**：通过独立 Token 获取健康状态和结构化报告。
+
+插件负责监控，不会充值、切换 CPA 路由或轮换凭据。账户健康状态也不代表所有模型都已通过推理测试。
+
+快速导航：[支持与限制](#支持与语义) · [安装](#安装) · [管理接口](#管理接口) · [安全](#安全) · [源码构建](#构建与发布)
 
 ## 核心行为
 
@@ -55,7 +65,7 @@ Cline Pass 使用官方账户、余额、套餐和 usage 接口，展示实时 U
 
 顶部“需要处理”中的每条告警都可以单独“关闭”。关闭状态保存在插件偏好文件中，该告警在问题持续期间不再显示或计数；问题消失后关闭记录自动清理，再次发生时会重新提醒。账户本身的警告或严重状态统计不会被隐藏。
 
-插件嵌入 CPAMP 时，父页面通过同源 `postMessage` 提供当前 CPAMP 管理密钥，专用会话代理将它换成 12 小时 HttpOnly cookie，并在服务器侧使用 CPA Management Key 访问白名单接口。页面不会把任何管理密钥写入 `localStorage`、`sessionStorage`、URL 或普通 cookie。单独打开插件页面时仍保留 CPAMP 管理密钥手动连接入口。
+插件嵌入 CPAMP 时，父页面通过同源 `postMessage` 提供当前 CPAMP 管理密钥，专用会话代理将它换成 12 小时 HttpOnly cookie，并在服务器侧使用 CPA Management Key 访问白名单接口。页面不会把任何管理密钥写入 `localStorage`、`sessionStorage`、URL 或普通 cookie。当前 `0.6.2` 源码还支持手动输入 CPA Management Key 登录；设置 `CPAMP_BASE_URL=off` 后无需依赖 CPAMP。该能力尚不在已发布的 `v0.6.1` 中。
 
 ### 智谱 / Z.ai 现金余额限制
 
@@ -98,7 +108,7 @@ url      使用指定 http、https 或 socks5 代理
 
 ## 安装
 
-以下配置用于 CPA 中的插件本体。浏览器管理页还需要 [使用指南中的会话代理部署](./docs/USER_GUIDE.md#安装与升级)，包括 CPAMP 认证、服务器侧 CPA Management Key 和 `/upstream-monitor/` 路由。
+以下配置用于 CPA 中的插件本体。浏览器管理页还需要 [使用指南中的会话代理部署](./docs/USER_GUIDE.md#安装与升级)，包括管理密钥认证、服务器侧 CPA Management Key 和 `/upstream-monitor/` 路由。
 
 发布包提供 Linux AMD64 和 Linux ARM64：
 
@@ -167,7 +177,7 @@ POST   /upstream-monitor/api/cleanup
 POST   /upstream-monitor/api/alerts/dismiss
 ```
 
-代理只开放上述路径与方法；写操作要求同源请求标记。CPAMP 密钥只转发到 CPAMP 内网 `/status` 做实时校验，不在代理中落盘；CPA Management Key 只存在服务器 secret 文件和发往 CPA 内网接口的请求头中。
+代理只开放上述路径与方法；写操作要求同源请求标记。CPAMP 密钥只转发到 CPAMP 内网 `/status` 做实时校验，不在代理中落盘；代理访问 CPA 时使用服务器 secret 文件中的 CPA Management Key。`0.6.2` 允许将同一密钥作为登录输入，经同源 HTTPS 发送到会话代理校验，但不会把它持久化到浏览器。
 
 异步单账户刷新：
 
@@ -197,7 +207,7 @@ GET /v0/resource/plugins/upstream-monitor/api/v1/report
 - 诊断和机器报告不返回管理 PAT 或原始推理 Key。
 - 管理 PAT 使用 AES-GCM 加密，AAD 绑定稳定账户 ID；PAT 仅返回 `missing`、`ready` 或 `decrypt_error` 状态。
 - 已有密文但密钥丢失或错误时，不覆盖旧密文，也不把 PAT 标为可用；非 PAT 功能和其他账户继续工作。
-- 浏览器只保存 HttpOnly 会话 cookie；CPAMP 管理密钥由 CPAMP 自身实时校验且不在代理落盘，CPA 管理密钥不进入浏览器。
+- 浏览器持久会话使用 HttpOnly cookie，不在 Web Storage、URL 或普通 cookie 中保存管理密钥。CPAMP 密钥由 CPAMP 实时校验且不在代理落盘；`0.6.2` 的 CPA 密钥登录只应在可信的同源 HTTPS 页面使用。
 - 会话代理只绑定宿主机回环端口，使用接口白名单、方法白名单、1 MiB 请求体上限和 16 MiB 响应体上限。
 - 插件不读取 Sub2API Balance 插件的数据库或运行状态，不修改 CPA 路由、凭证或请求处理逻辑。
 - URL、日志、缓存、报告和发布材料不包含 PAT、密钥或真实账户响应。
