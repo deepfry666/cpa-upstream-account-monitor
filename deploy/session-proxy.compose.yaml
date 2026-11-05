@@ -5,7 +5,7 @@ services:
     build:
       context: .
       dockerfile: session-proxy.Dockerfile
-    image: cpa-upstream-monitor-session-proxy:0.6.1
+    image: cpa-upstream-monitor-session-proxy:0.6.2
     container_name: upstream-monitor-session-proxy
     restart: unless-stopped
     read_only: true
