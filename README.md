@@ -4,15 +4,15 @@
 
 “上游账户监控”是 [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) / CPA Manager Plus 的原生动态库插件。它从 CPA 配置和宿主凭证中独立发现上游账户，查询余额、额度、用量和健康状态，并提供中文优先的响应式管理页和只读机器接口。
 
-当前版本：`0.6.1`。插件技术 ID 和动态库名保持为 `upstream-monitor`，CPAMP 挂载入口不变。
+当前版本：`0.6.2`。插件技术 ID 和动态库名保持为 `upstream-monitor`，CPAMP 挂载入口不变。
 
 如果一个 CPA 接了多个上游，这个插件能让你在一页里看清：每个账户还剩多少、限制属于当前 Key 还是整个账户、周期额度什么时候重置，以及这些数据最后一次成功查询的时间。不同币种、Credits 和周期窗口分别展示；“未知”也会保留为未知。
 
-从这里开始：[中文使用指南](./docs/USER_GUIDE.md) · [0.6.1 发布下载](https://github.com/deepfry666/cpa-upstream-account-monitor/releases/tag/v0.6.1) · [迁移与回滚](./docs/MIGRATION_AND_ROLLBACK.md)
+从这里开始：[中文使用指南](./docs/USER_GUIDE.md) · [0.6.2 发布下载](https://github.com/deepfry666/cpa-upstream-account-monitor/releases/tag/v0.6.2) · [迁移与回滚](./docs/MIGRATION_AND_ROLLBACK.md)
 
 ![小黑分别量取余额和周期额度，并记录更新时间；未知账户保留问号](./assets/upstream-monitor-illustrations/01-account-watch.png)
 
-首次安装请先看使用指南中的完整部署流程。`0.6.1` 的浏览器管理页需要同时部署插件动态库、会话代理和同源 HTTPS 反向代理；只安装 `.so` 不足以完成页面连接。
+首次安装请先看使用指南中的完整部署流程。`0.6.2` 的浏览器管理页需要同时部署插件动态库、会话代理和同源 HTTPS 反向代理；只安装 `.so` 不足以完成页面连接。
 
 ## 核心行为
 
@@ -209,9 +209,9 @@ GET /v0/resource/plugins/upstream-monitor/api/v1/report
 ```bash
 make test
 make vet
-make package VERSION=0.6.1 GOOS=linux GOARCH=amd64
-make package VERSION=0.6.1 GOOS=linux GOARCH=arm64
-make checksums VERSION=0.6.1 GOOS=linux GOARCH=amd64
+make package VERSION=0.6.2 GOOS=linux GOARCH=amd64
+make package VERSION=0.6.2 GOOS=linux GOARCH=arm64
+make checksums VERSION=0.6.2 GOOS=linux GOARCH=amd64
 ```
 
 `make package` 会先对目标架构动态库执行真实 `dlopen(RTLD_NOW)` 和必需导出符号检查，失败时不会生成发布 ZIP。Linux AMD64 使用本机 C 工具链；Linux ARM64 使用 `aarch64-linux-gnu-gcc` 和 `qemu-aarch64-static`，缺少 QEMU 时从当前 apt 软件源下载并解包到临时目录。`SKIP_PLUGIN_LOAD_CHECK=1` 只用于本机诊断构建，不能用于正式发布。

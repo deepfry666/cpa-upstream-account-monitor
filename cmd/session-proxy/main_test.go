@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -191,5 +192,43 @@ func TestProxyRejectsOversizedWriteBody(t *testing.T) {
 	proxy.ServeHTTP(response, request)
 	if response.Code != http.StatusRequestEntityTooLarge {
 		t.Fatalf("oversized request status = %d, want 413", response.Code)
+	}
+}
+
+func postLogin(t *testing.T, proxy *sessionProxy, key string) int {
+	t.Helper()
+	body, _ := json.Marshal(map[string]string{"key": key})
+	request := httptest.NewRequest(http.MethodPost, "/upstream-monitor/session", bytes.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set(requestMarker, "1")
+	recorder := httptest.NewRecorder()
+	proxy.createSession(recorder, request)
+	return recorder.Code
+}
+
+func TestCPAManagementKeySignsInWithoutAskingCPAMP(t *testing.T) {
+	cpamp := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		t.Error("the CPA Management Key must not be sent to CPAMP")
+	}))
+	defer cpamp.Close()
+	proxy, err := newSessionProxy([]byte("cpa-management"), "http://cpa.invalid", cpamp.URL, &http.Client{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if code := postLogin(t, proxy, "cpa-management"); code != http.StatusNoContent {
+		t.Fatalf("code = %d", code)
+	}
+}
+
+func TestCPAMPCheckCanBeTurnedOff(t *testing.T) {
+	proxy, err := newSessionProxy([]byte("cpa-management"), "http://cpa.invalid", "off", &http.Client{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if code := postLogin(t, proxy, "cpa-management"); code != http.StatusNoContent {
+		t.Fatalf("correct key: code = %d", code)
+	}
+	if code := postLogin(t, proxy, "wrong"); code != http.StatusUnauthorized {
+		t.Fatalf("wrong key: code = %d", code)
 	}
 }

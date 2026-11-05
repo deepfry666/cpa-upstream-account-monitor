@@ -1391,7 +1391,7 @@
         ><span class="brand-sub">CPA / CPAMP</span>
       </div>
       <div class="top-actions">
-        <span id="version" class="version">v0.6.1</span
+        <span id="version" class="version">v0.6.2</span
         ><button
           id="refresh-all"
           class="btn"
@@ -1425,12 +1425,12 @@
       </header>
       <section class="connection" aria-label="连接设置">
         <div class="field">
-          <label for="token">CPAMP 管理密钥</label
+          <label for="token">管理密钥</label
           ><input
             id="token"
             type="password"
             autocomplete="off"
-            placeholder="输入 CPAMP 管理密钥"
+            placeholder="输入 CPA 管理密钥"
           />
         </div>
         <div class="connection-actions">
@@ -4439,7 +4439,7 @@
               body: JSON.stringify({ key }),
             });
             if (response.status === 401) {
-              throw new Error("CPAMP 管理密钥无效或已失效");
+              throw new Error("管理密钥无效或已失效");
             }
             if (!response.ok) throw new Error("安全会话暂时不可用");
             tokenInput.value = "";

@@ -1,6 +1,6 @@
 # 上游账户监控使用指南
 
-适用版本：`upstream-monitor 0.6.1`。本指南根据当前页面、适配器和部署配置编写。
+适用版本：`upstream-monitor 0.6.2`。本指南根据当前页面、适配器和部署配置编写。
 
 ![小黑分别查看余额与周期额度，记录更新时间，不把未知读数当作零](../assets/upstream-monitor-illustrations/01-account-watch.png)
 
@@ -43,7 +43,7 @@
 
 ### 准备三个组件
 
-`0.6.1` 的完整浏览器管理流程需要：
+`0.6.2` 的完整浏览器管理流程需要：
 
 | 组件 | 作用 | 部署要求 |
 | --- | --- | --- |
@@ -53,11 +53,11 @@
 
 这里有两套管理密钥：页面输入的是 **CPAMP 管理密钥**；代理读取的是 **CPA Management Key**。它们可以不同，后者不需要输入浏览器。会话 cookie 设置了 `Secure`，实际部署应通过 HTTPS 访问。
 
-升级已有安装前，按 [迁移与回滚说明](./MIGRATION_AND_ROLLBACK.md) 停止写入并成套备份动态库、偏好文件、偏好密钥和快照缓存。`0.5.x` / `0.6.0` 到 `0.6.1` 虽然无需改数据格式，管理页仍需新增的会话代理。
+升级已有安装前，按 [迁移与回滚说明](./MIGRATION_AND_ROLLBACK.md) 停止写入并成套备份动态库、偏好文件、偏好密钥和快照缓存。`0.5.x` / `0.6.0` 到 `0.6.2` 虽然无需改数据格式，管理页仍需新增的会话代理。
 
 ### 1. 安装插件本体
 
-从 [v0.6.1 Release](https://github.com/deepfry666/cpa-upstream-account-monitor/releases/tag/v0.6.1) 下载架构匹配的 `upstream-monitor_0.6.1_linux_amd64.zip` 或 `upstream-monitor_0.6.1_linux_arm64.zip`，用同页 `checksums.txt` 核对 SHA-256。解压后保持动态库名为 `upstream-monitor.so`，放入 CPA 使用的对应架构插件目录，例如：
+从 [v0.6.2 Release](https://github.com/deepfry666/cpa-upstream-account-monitor/releases/tag/v0.6.2) 下载架构匹配的 `upstream-monitor_0.6.2_linux_amd64.zip` 或 `upstream-monitor_0.6.2_linux_arm64.zip`，用同页 `checksums.txt` 核对 SHA-256。解压后保持动态库名为 `upstream-monitor.so`，放入 CPA 使用的对应架构插件目录，例如：
 
 ```text
 plugins/linux/amd64/upstream-monitor.so
@@ -74,7 +74,7 @@ plugins/linux/arm64/upstream-monitor.so
 
 ### 2. 准备会话代理
 
-Linux AMD64 可直接下载 `upstream-monitor-session-proxy_0.6.1_linux_amd64.zip`，用 Release 中的 `SHA256SUMS` 核对后，解压到独立的部署目录。包内有代理二进制、Dockerfile、Compose、Nginx 片段和发布说明；此代理包与插件 `.so` 包是两份资产。
+Linux AMD64 可直接下载 `upstream-monitor-session-proxy_0.6.2_linux_amd64.zip`，用 Release 中的 `SHA256SUMS` 核对后，解压到独立的部署目录。包内有代理二进制、Dockerfile、Compose、Nginx 片段和发布说明；此代理包与插件 `.so` 包是两份资产。
 
 当前 Release 未提供 ARM64 会话代理包。需要 ARM64 时，在本仓库根目录用 Go 1.26+ 构建，并将部署文件放在源码仓库之外：
 
@@ -93,7 +93,7 @@ cp deploy/session-proxy.Dockerfile deploy/session-proxy.compose.yaml deploy/ngin
 | Compose 配置 | 模板值 | 需要确认什么 |
 | --- | --- | --- |
 | `CPA_BASE_URL` | `http://cli-proxy-api:8317` | 代理容器能访问的 CPA 地址 |
-| `CPAMP_BASE_URL` | `http://cpa-manager-plus:18317` | 代理容器能访问的 CPAMP 地址，且 `/status` 支持当前管理密钥校验 |
+| `CPAMP_BASE_URL` | `http://cpa-manager-plus:18317` | 代理容器能访问的 CPAMP 地址；设为 `off` 时只接受 CPA Management Key，且 `/status` 支持当前管理密钥校验 |
 | `CPA_MANAGEMENT_KEY_FILE` | `/run/secrets/cpa_management_key` | 保持与 Compose secret 挂载路径一致 |
 | secret 源文件 | `./secrets/cpa-management-key` | 上一步创建的服务器私密文件 |
 | 外部网络名 | `cpa_ai_gateway` | 已存在且能连接 CPA、CPAMP 的实际 Docker 网络 |
@@ -138,7 +138,7 @@ location ^~ /upstream-monitor/ {
 5. 点击“保存监控配置”，再到“账户监控”查看。打开页面会先展示已保存快照；首次查询或后台查询进行中时可稍候，或对所选账户点击“刷新当前”。
 6. 在“监控设置”保存适合自己的提醒阈值；在“数据状态”确认目录同步成功，并检查数据的实际采集时间。
 
-支持的适配器不一定都有同名的手动下拉选项，例如 `0.6.1` 的查询方式列表没有单独的 Cline Pass 选项。遇到识别问题，应核对 [适配器配置](../adapters.go) 的 `monitors` 覆盖能力，不要选择不对应的平台协议。
+支持的适配器不一定都有同名的手动下拉选项，例如 `0.6.2` 的查询方式列表没有单独的 Cline Pass 选项。遇到识别问题，应核对 [适配器配置](../adapters.go) 的 `monitors` 覆盖能力，不要选择不对应的平台协议。
 
 ## 四个工作区怎么用
 

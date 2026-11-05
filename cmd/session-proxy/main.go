@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -130,9 +131,13 @@ func newSessionProxy(cpaKey []byte, rawCPAURL, rawCPAMPURL string, client *http.
 	if err != nil {
 		return nil, err
 	}
-	adminURL, err := parseBaseURL(rawCPAMPURL, "CPAMP_BASE_URL")
-	if err != nil {
-		return nil, err
+	// "off" turns the CPAMP check off; the CPA Management Key alone then signs in.
+	var adminURL *url.URL
+	if !strings.EqualFold(strings.TrimSpace(rawCPAMPURL), "off") {
+		adminURL, err = parseBaseURL(rawCPAMPURL, "CPAMP_BASE_URL")
+		if err != nil {
+			return nil, err
+		}
 	}
 	if client == nil {
 		client = &http.Client{Timeout: 35 * time.Second}
@@ -222,7 +227,7 @@ func (p *sessionProxy) createSession(writer http.ResponseWriter, request *http.R
 		http.Error(writer, "invalid login", http.StatusBadRequest)
 		return
 	}
-	authorized, err := p.verifyCPAMPAdmin(request.Context(), input.Key)
+	authorized, err := p.verifyLoginKey(request.Context(), input.Key)
 	if err != nil {
 		http.Error(writer, "session unavailable", http.StatusServiceUnavailable)
 		return
@@ -254,6 +259,18 @@ func (p *sessionProxy) createSession(writer http.ResponseWriter, request *http.R
 		Secure: true, SameSite: http.SameSiteStrictMode,
 	})
 	writer.WriteHeader(http.StatusNoContent)
+}
+
+// verifyLoginKey accepts the CPA Management Key, which works in any panel, and the CPAMP
+// admin key while a CPAMP is configured.
+func (p *sessionProxy) verifyLoginKey(ctx context.Context, key string) (bool, error) {
+	if subtle.ConstantTimeCompare([]byte(key), p.cpaKey) == 1 {
+		return true, nil
+	}
+	if p.cpampURL == nil {
+		return false, nil
+	}
+	return p.verifyCPAMPAdmin(ctx, key)
 }
 
 func (p *sessionProxy) verifyCPAMPAdmin(ctx context.Context, key string) (bool, error) {

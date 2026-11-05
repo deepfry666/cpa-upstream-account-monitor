@@ -1,5 +1,13 @@
 # 更新日志
 
+## 0.6.2 - 2026-11-05
+
+本补丁让上游监控不再依赖 CPAMP，可在 Oh My CPA 等其他面板中使用。
+
+- 会话代理接受 CPA Management Key 登录。配置了 CPAMP 时，CPAMP 管理密钥仍然可用。
+- `CPAMP_BASE_URL=off` 可关闭 CPAMP 校验。
+- 登录框改为“管理密钥”，不再只提 CPAMP。
+
 ## 0.6.1 - 2026-09-24
 
 本补丁修复 CPAMP 管理密钥与 CPA Management Key 不同导致的自动连接失败。新增专用会话代理，用 CPAMP 密钥换取 HttpOnly 会话，再由服务器侧代理白名单 CPA 管理接口；浏览器不再保存或直接发送 CPA Management Key。
